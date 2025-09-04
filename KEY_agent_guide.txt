@@ -1,0 +1,5 @@
+For supabase always include good security practices like RLS
+Supabase has a default user table and you can extend it with a profiles table
+Subabase provides user login, etc.
+Don't forget that you can use the supabase MCP
+You can get relevant keys, like anon key via the MCP if you need to
