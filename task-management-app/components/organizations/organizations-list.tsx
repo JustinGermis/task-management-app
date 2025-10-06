@@ -17,8 +17,12 @@ import { getOrganizations } from '@/lib/api/organizations-simple'
 import { deleteOrganization } from '@/lib/api/organizations'
 import { OrganizationWithDetails } from '@/lib/types'
 import { formatDate, pluralize } from '@/lib/utils'
+import { useDataCache } from '@/lib/contexts/data-cache-context'
+
+const CACHE_KEY = 'organizations:list'
 
 export function OrganizationsList() {
+  const cache = useDataCache()
   const [organizations, setOrganizations] = useState<OrganizationWithDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -27,9 +31,18 @@ export function OrganizationsList() {
   }, [])
 
   const loadOrganizations = async () => {
+    // Check cache first
+    const cached = cache.get(CACHE_KEY)
+    if (cached && !cache.isStale(CACHE_KEY)) {
+      setOrganizations(cached)
+      setIsLoading(false)
+      return
+    }
+
     try {
       const data = await getOrganizations()
       setOrganizations(data)
+      cache.set(CACHE_KEY, data)
     } catch (error) {
       console.error('Failed to load organizations:', error)
     } finally {
@@ -39,9 +52,10 @@ export function OrganizationsList() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this organization?')) return
-    
+
     try {
       await deleteOrganization(id)
+      cache.invalidate(CACHE_KEY)
       setOrganizations(organizations.filter(org => org.id !== id))
     } catch (error) {
       console.error('Failed to delete organization:', error)

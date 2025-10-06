@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { 
-  DndContext, 
-  DragEndEvent, 
-  DragOverlay, 
-  DragStartEvent, 
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
   closestCorners,
   KeyboardSensor,
   PointerSensor,
@@ -29,8 +29,14 @@ import { useTaskUpdates } from '@/lib/hooks/use-realtime'
 import { TaskWithDetails, TaskStatus, Column, Project } from '@/lib/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getRegularTasks } from '@/lib/task-utils'
+import { useDataCache } from '@/lib/contexts/data-cache-context'
 
 import { TASK_STATUSES } from '@/lib/constants'
+
+const CACHE_KEYS = {
+  PROJECTS: 'kanban:projects',
+  TASKS: (projectId: string) => `kanban:tasks:${projectId}`,
+}
 
 const COLUMNS = TASK_STATUSES.map(status => ({
   id: status.id,
@@ -39,6 +45,7 @@ const COLUMNS = TASK_STATUSES.map(status => ({
 }))
 
 export function KanbanBoard() {
+  const cache = useDataCache()
   const [tasks, setTasks] = useState<TaskWithDetails[]>([])
   const [columns, setColumns] = useState<Column[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -116,20 +123,39 @@ export function KanbanBoard() {
   }, [tasks, searchQuery])
 
   const loadProjects = async () => {
+    // Check cache first
+    const cached = cache.get(CACHE_KEYS.PROJECTS)
+    if (cached && !cache.isStale(CACHE_KEYS.PROJECTS)) {
+      setProjects(cached)
+      return
+    }
+
     try {
       const data = await getProjects()
       setProjects(data)
+      cache.set(CACHE_KEYS.PROJECTS, data)
     } catch (error) {
       console.error('Failed to load projects:', error)
     }
   }
 
   const loadTasks = async () => {
+    const cacheKey = CACHE_KEYS.TASKS(selectedProjectId)
+
+    // Check cache first
+    const cached = cache.get(cacheKey)
+    if (cached && !cache.isStale(cacheKey)) {
+      setTasks(cached)
+      setIsLoading(false)
+      return
+    }
+
     try {
       const data = await getTasks(selectedProjectId === 'all' ? undefined : selectedProjectId)
       // Filter out sections - kanban only shows regular tasks
       const regularTasks = getRegularTasks(data)
       setTasks(regularTasks)
+      cache.set(cacheKey, regularTasks)
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
