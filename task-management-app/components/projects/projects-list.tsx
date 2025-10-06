@@ -22,8 +22,15 @@ import {
 } from '@/components/ui/select'
 import { getProjects, deleteProject, getOrganizations } from '@/lib/api/simple-api'
 import { formatDate } from '@/lib/utils'
+import { useDataCache } from '@/lib/contexts/data-cache-context'
+
+const CACHE_KEYS = {
+  ORGANIZATIONS: 'projects:organizations',
+  PROJECTS: (orgId: string) => `projects:list:${orgId}`,
+}
 
 export function ProjectsList({ organizationId: initialOrgId }: { organizationId?: string }) {
+  const cache = useDataCache()
   const [projects, setProjects] = useState<any[]>([])
   const [organizations, setOrganizations] = useState<any[]>([])
   const [selectedOrgId, setSelectedOrgId] = useState<string>('all')
@@ -44,19 +51,38 @@ export function ProjectsList({ organizationId: initialOrgId }: { organizationId?
   }, [selectedOrgId])
 
   const loadOrganizations = async () => {
+    // Check cache first
+    const cached = cache.get(CACHE_KEYS.ORGANIZATIONS)
+    if (cached && !cache.isStale(CACHE_KEYS.ORGANIZATIONS)) {
+      setOrganizations(cached)
+      return
+    }
+
     try {
       const data = await getOrganizations()
       setOrganizations(data)
+      cache.set(CACHE_KEYS.ORGANIZATIONS, data)
     } catch (error) {
       console.error('Failed to load organizations:', error)
     }
   }
 
   const loadProjects = async () => {
+    const cacheKey = CACHE_KEYS.PROJECTS(selectedOrgId)
+
+    // Check cache first
+    const cached = cache.get(cacheKey)
+    if (cached && !cache.isStale(cacheKey)) {
+      setProjects(cached)
+      setIsLoading(false)
+      return
+    }
+
     try {
       const orgId = selectedOrgId === 'all' ? undefined : selectedOrgId
       const data = await getProjects(orgId)
       setProjects(data)
+      cache.set(cacheKey, data)
     } catch (error) {
       console.error('Failed to load projects:', error)
     } finally {
@@ -69,6 +95,12 @@ export function ProjectsList({ organizationId: initialOrgId }: { organizationId?
 
     try {
       await deleteProject(projectId)
+      // Invalidate cache for current organization
+      cache.invalidate(CACHE_KEYS.PROJECTS(selectedOrgId))
+      // Also invalidate 'all' if we're in a specific org
+      if (selectedOrgId !== 'all') {
+        cache.invalidate(CACHE_KEYS.PROJECTS('all'))
+      }
       await loadProjects()
     } catch (error) {
       console.error('Failed to delete project:', error)

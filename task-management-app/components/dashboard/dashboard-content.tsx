@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Users, 
-  CheckCircle2, 
-  Clock, 
+import {
+  BarChart3,
+  TrendingUp,
+  Users,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   Plus,
   ArrowRight,
@@ -18,12 +18,20 @@ import {
 import Link from 'next/link'
 import { getDashboardStats, getRecentTasks, getRecentProjects } from '@/lib/api/simple-api'
 import { formatRelativeTime } from '@/lib/utils'
+import { useDataCache } from '@/lib/contexts/data-cache-context'
 
 interface DashboardContentProps {
   userName: string
 }
 
+const CACHE_KEYS = {
+  STATS: 'dashboard:stats',
+  RECENT_TASKS: 'dashboard:recent-tasks',
+  RECENT_PROJECTS: 'dashboard:recent-projects',
+}
+
 export function DashboardContent({ userName }: DashboardContentProps) {
+  const cache = useDataCache()
   const [isLoading, setIsLoading] = useState(true)
   const [stats, setStats] = useState({
     totalTasks: 0,
@@ -43,6 +51,26 @@ export function DashboardContent({ userName }: DashboardContentProps) {
   }, [])
 
   const loadDashboardData = async () => {
+    // Check cache first
+    const cachedStats = cache.get(CACHE_KEYS.STATS)
+    const cachedTasks = cache.get(CACHE_KEYS.RECENT_TASKS)
+    const cachedProjects = cache.get(CACHE_KEYS.RECENT_PROJECTS)
+
+    // If we have cached data that's not stale, use it immediately
+    const hasValidCache =
+      cachedStats && !cache.isStale(CACHE_KEYS.STATS) &&
+      cachedTasks && !cache.isStale(CACHE_KEYS.RECENT_TASKS) &&
+      cachedProjects && !cache.isStale(CACHE_KEYS.RECENT_PROJECTS)
+
+    if (hasValidCache) {
+      setStats(cachedStats)
+      setRecentTasks(cachedTasks)
+      setRecentProjects(cachedProjects)
+      setIsLoading(false)
+      return
+    }
+
+    // Otherwise fetch fresh data
     try {
       const [statsData, tasksData, projectsData] = await Promise.all([
         getDashboardStats(),
@@ -52,9 +80,12 @@ export function DashboardContent({ userName }: DashboardContentProps) {
 
       if (statsData) {
         setStats(statsData)
+        cache.set(CACHE_KEYS.STATS, statsData)
       }
       setRecentTasks(tasksData)
       setRecentProjects(projectsData)
+      cache.set(CACHE_KEYS.RECENT_TASKS, tasksData)
+      cache.set(CACHE_KEYS.RECENT_PROJECTS, projectsData)
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
     } finally {

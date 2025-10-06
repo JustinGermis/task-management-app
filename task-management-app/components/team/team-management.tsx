@@ -22,9 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { 
-  getOrganizations, 
-  getOrganizationMembers, 
+import {
+  getOrganizations,
+  getOrganizationMembers,
   getCurrentUserProfile,
   getInvitations,
   updateMemberRole,
@@ -35,6 +35,7 @@ import {
 import { formatRelativeTime } from '@/lib/utils'
 import { InviteDialog } from '@/components/team/invite-dialog'
 import { StrideshiftTeamSection } from '@/components/team/strideshift-team-section'
+import { useDataCache } from '@/lib/contexts/data-cache-context'
 
 interface TeamMember {
   id: string
@@ -50,7 +51,15 @@ interface TeamMember {
   }
 }
 
+const CACHE_KEYS = {
+  PROFILE: 'team:profile',
+  ORGANIZATIONS: 'team:organizations',
+  MEMBERS: (orgId: string) => `team:members:${orgId}`,
+  INVITATIONS: (orgId: string) => `team:invitations:${orgId}`,
+}
+
 export function TeamManagement() {
+  const cache = useDataCache()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [invitations, setInvitations] = useState<any[]>([])
   const [organizations, setOrganizations] = useState<any[]>([])
@@ -72,15 +81,32 @@ export function TeamManagement() {
   }, [selectedOrgId])
 
   const loadData = async () => {
+    // Check cache first
+    const cachedProfile = cache.get(CACHE_KEYS.PROFILE)
+    const cachedOrgs = cache.get(CACHE_KEYS.ORGANIZATIONS)
+
+    if (cachedProfile && !cache.isStale(CACHE_KEYS.PROFILE) &&
+        cachedOrgs && !cache.isStale(CACHE_KEYS.ORGANIZATIONS)) {
+      setCurrentUser(cachedProfile)
+      setOrganizations(cachedOrgs)
+      if (cachedOrgs.length > 0) {
+        setSelectedOrgId(cachedOrgs[0].id)
+      }
+      setIsLoading(false)
+      return
+    }
+
     try {
       const [profile, orgs] = await Promise.all([
         getCurrentUserProfile(),
         getOrganizations()
       ])
-      
+
       setCurrentUser(profile)
       setOrganizations(orgs)
-      
+      cache.set(CACHE_KEYS.PROFILE, profile)
+      cache.set(CACHE_KEYS.ORGANIZATIONS, orgs)
+
       if (orgs.length > 0) {
         setSelectedOrgId(orgs[0].id)
       }
@@ -92,18 +118,38 @@ export function TeamManagement() {
   }
 
   const loadMembers = async () => {
+    const cacheKey = CACHE_KEYS.MEMBERS(selectedOrgId)
+
+    // Check cache first
+    const cached = cache.get(cacheKey)
+    if (cached && !cache.isStale(cacheKey)) {
+      setMembers(cached)
+      return
+    }
+
     try {
       const data = await getOrganizationMembers(selectedOrgId)
       setMembers(data)
+      cache.set(cacheKey, data)
     } catch (error) {
       console.error('Failed to load members:', error)
     }
   }
 
   const loadInvitations = async () => {
+    const cacheKey = CACHE_KEYS.INVITATIONS(selectedOrgId)
+
+    // Check cache first
+    const cached = cache.get(cacheKey)
+    if (cached && !cache.isStale(cacheKey)) {
+      setInvitations(cached)
+      return
+    }
+
     try {
       const data = await getInvitations(selectedOrgId)
       setInvitations(data)
+      cache.set(cacheKey, data)
     } catch (error) {
       console.error('Failed to load invitations:', error)
     }
@@ -112,6 +158,7 @@ export function TeamManagement() {
   const handleRoleChange = async (memberId: string, newRole: string) => {
     try {
       await updateMemberRole(memberId, newRole)
+      cache.invalidate(CACHE_KEYS.MEMBERS(selectedOrgId))
       await loadMembers()
     } catch (error) {
       console.error('Failed to update role:', error)
@@ -123,6 +170,7 @@ export function TeamManagement() {
     if (!confirm('Are you sure you want to remove this team member?')) return
     try {
       await removeMember(memberId)
+      cache.invalidate(CACHE_KEYS.MEMBERS(selectedOrgId))
       await loadMembers()
     } catch (error) {
       console.error('Failed to remove member:', error)
@@ -133,6 +181,7 @@ export function TeamManagement() {
   const handleCancelInvite = async (inviteId: string) => {
     try {
       await cancelInvitation(inviteId)
+      cache.invalidate(CACHE_KEYS.INVITATIONS(selectedOrgId))
       await loadInvitations()
     } catch (error) {
       console.error('Failed to cancel invitation:', error)
