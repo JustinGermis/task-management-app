@@ -94,7 +94,9 @@ export function Sidebar({ user, className }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/') || (isPending && pendingHref === item.href)
+          const isActive = isPending
+            ? pendingHref === item.href
+            : pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
               key={item.name}
