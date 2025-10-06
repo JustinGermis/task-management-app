@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -63,8 +62,6 @@ const navigation = [
 export function Sidebar({ user, className }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-  const [pendingHref, setPendingHref] = useState<string | null>(null)
 
   const handleSignOut = async () => {
     await signOut()
@@ -94,21 +91,12 @@ export function Sidebar({ user, className }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
-          const isActive = isPending
-            ? pendingHref === item.href
-            : pathname === item.href || pathname.startsWith(item.href + '/')
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
               key={item.name}
               href={item.href}
-              onClick={(e) => {
-                if (pathname !== item.href) {
-                  setPendingHref(item.href)
-                  startTransition(() => {
-                    router.push(item.href)
-                  })
-                }
-              }}
+              prefetch={true}
               className={cn(
                 'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive
