@@ -13,20 +13,49 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getProjects, deleteProject } from '@/lib/api/simple-api'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { getProjects, deleteProject, getOrganizations } from '@/lib/api/simple-api'
 import { formatDate } from '@/lib/utils'
 
-export function ProjectsList({ organizationId }: { organizationId?: string }) {
+export function ProjectsList({ organizationId: initialOrgId }: { organizationId?: string }) {
   const [projects, setProjects] = useState<any[]>([])
+  const [organizations, setOrganizations] = useState<any[]>([])
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('all')
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    loadOrganizations()
+  }, [])
+
+  useEffect(() => {
+    if (initialOrgId) {
+      setSelectedOrgId(initialOrgId)
+    }
+  }, [initialOrgId])
+
+  useEffect(() => {
     loadProjects()
-  }, [organizationId])
+  }, [selectedOrgId])
+
+  const loadOrganizations = async () => {
+    try {
+      const data = await getOrganizations()
+      setOrganizations(data)
+    } catch (error) {
+      console.error('Failed to load organizations:', error)
+    }
+  }
 
   const loadProjects = async () => {
     try {
-      const data = await getProjects(organizationId)
+      const orgId = selectedOrgId === 'all' ? undefined : selectedOrgId
+      const data = await getProjects(orgId)
       setProjects(data)
     } catch (error) {
       console.error('Failed to load projects:', error)
@@ -137,17 +166,34 @@ export function ProjectsList({ organizationId }: { organizationId?: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Projects</h2>
           <p className="text-muted-foreground">Manage your projects and tasks</p>
         </div>
-        <Button asChild className="bg-primary hover:bg-primary/90">
-          <Link href="/projects/new" className="flex items-center">
-            <Plus className="mr-2 h-4 w-4" />
-            New Project
-          </Link>
-        </Button>
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          {organizations.length > 1 && (
+            <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="All organizations" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All organizations</SelectItem>
+                {organizations.map((org) => (
+                  <SelectItem key={org.id} value={org.id}>
+                    {org.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button asChild className="bg-primary hover:bg-primary/90">
+            <Link href="/projects/new" className="flex items-center">
+              <Plus className="mr-2 h-4 w-4" />
+              New Project
+            </Link>
+          </Button>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {projects.map((project) => (

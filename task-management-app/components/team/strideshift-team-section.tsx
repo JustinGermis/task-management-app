@@ -6,13 +6,22 @@ import { Database } from '@/types/database'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { 
-  Users, 
+import {
+  Users,
   Code,
   Briefcase,
   Mail,
-  UserCheck
+  UserCheck,
+  UserX
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -42,9 +51,13 @@ interface TeamMember {
 interface StrideshiftTeamSectionProps {
   organizationId: string
   searchQuery: string
+  currentUser: any
+  isAdmin: boolean
+  onRoleChange: (memberId: string, newRole: string) => Promise<void>
+  onRemoveMember: (memberId: string) => Promise<void>
 }
 
-export function StrideshiftTeamSection({ organizationId, searchQuery }: StrideshiftTeamSectionProps) {
+export function StrideshiftTeamSection({ organizationId, searchQuery, currentUser, isAdmin, onRoleChange, onRemoveMember }: StrideshiftTeamSectionProps) {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -179,7 +192,8 @@ export function StrideshiftTeamSection({ organizationId, searchQuery }: Stridesh
                 <TableHead>Role/Title</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Skills</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Access Level</TableHead>
+                {isAdmin && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -228,12 +242,42 @@ export function StrideshiftTeamSection({ organizationId, searchQuery }: Stridesh
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={member.role === 'admin' ? 'default' : member.role === 'manager' ? 'secondary' : 'outline'}
-                      >
-                        {member.role}
-                      </Badge>
+                      {isAdmin && member.user_id !== currentUser?.id ? (
+                        <Select
+                          value={member.role}
+                          onValueChange={(value) => onRoleChange(member.id, value)}
+                        >
+                          <SelectTrigger className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="member">Member</SelectItem>
+                            <SelectItem value="guest">Guest</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge
+                          variant={member.role === 'admin' ? 'default' : member.role === 'manager' ? 'secondary' : 'outline'}
+                        >
+                          {member.role}
+                        </Badge>
+                      )}
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        {member.user_id !== currentUser?.id && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onRemoveMember(member.id)}
+                          >
+                            <UserX className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 )
               })}

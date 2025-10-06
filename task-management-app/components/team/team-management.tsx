@@ -243,6 +243,10 @@ export function TeamManagement() {
         <StrideshiftTeamSection
           organizationId={selectedOrgId}
           searchQuery={searchQuery}
+          currentUser={currentUser}
+          isAdmin={isAdmin}
+          onRoleChange={handleRoleChange}
+          onRemoveMember={handleRemoveMember}
         />
       ) : (
       <>
