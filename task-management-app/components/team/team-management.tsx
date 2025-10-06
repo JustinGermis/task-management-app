@@ -224,10 +224,24 @@ export function TeamManagement() {
         </Card>
       )}
 
+      {/* Invite Dialog - Available for all orgs */}
+      {selectedOrgId && (
+        <InviteDialog
+          isOpen={showInviteDialog}
+          onOpenChange={setShowInviteDialog}
+          organizationId={selectedOrgId}
+          organizationName={organizations.find(o => o.id === selectedOrgId)?.name || ''}
+          onInviteSent={() => {
+            loadInvitations()
+            setShowInviteDialog(false)
+          }}
+        />
+      )}
+
       {/* Show StrideShift team section if that org is selected */}
       {organizations.find(o => o.id === selectedOrgId)?.name === 'StrideShift' ? (
-        <StrideshiftTeamSection 
-          organizationId={selectedOrgId} 
+        <StrideshiftTeamSection
+          organizationId={selectedOrgId}
           searchQuery={searchQuery}
         />
       ) : (
@@ -433,20 +447,6 @@ export function TeamManagement() {
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* Invite Dialog */}
-      {selectedOrgId && (
-        <InviteDialog
-          isOpen={showInviteDialog}
-          onOpenChange={setShowInviteDialog}
-          organizationId={selectedOrgId}
-          organizationName={organizations.find(o => o.id === selectedOrgId)?.name || ''}
-          onInviteSent={() => {
-            loadInvitations()
-            setShowInviteDialog(false)
-          }}
-        />
       )}
       </>
       )}
