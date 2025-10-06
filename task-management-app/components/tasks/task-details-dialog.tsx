@@ -33,6 +33,21 @@ export function TaskDetailsDialog({
   onTaskUpdated,
   onTaskDeleted 
 }: TaskDetailsDialogProps) {
+  // Debug logging to see what task data we receive
+  useEffect(() => {
+    if (task) {
+      console.log('TaskDetailsDialog received task:', {
+        id: task.id,
+        title: task.title,
+        metadata: task.metadata,
+        assignees: task.assignees,
+        assigneeCount: task.assignees?.length || 0
+      })
+      if (task.assignees && task.assignees.length > 0) {
+        console.log('Assignee details:', task.assignees)
+      }
+    }
+  }, [task])
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState({
     title: '',
@@ -353,6 +368,25 @@ export function TaskDetailsDialog({
                         </Avatar>
                       )
                     })}
+                  </div>
+                ) : task.metadata?.assignedTo ? (
+                  <div className="flex items-center space-x-2">
+                    <Avatar className="h-8 w-8 border-2 border-background">
+                      <AvatarFallback>
+                        {(task.metadata.assignedTo as string).split(' ').map((n: string) => n[0]).join('').toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="text-sm font-medium">{task.metadata.assignedTo as string}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {task.metadata.assignedEmail as string}
+                      </div>
+                      {task.metadata.autoAssigned && (
+                        <Badge variant="secondary" className="text-xs mt-1">
+                          Auto-assigned
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <span className="text-sm text-muted-foreground">No assignees</span>

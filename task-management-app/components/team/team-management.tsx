@@ -34,6 +34,7 @@ import {
 } from '@/lib/api/simple-api'
 import { formatRelativeTime } from '@/lib/utils'
 import { InviteDialog } from '@/components/team/invite-dialog'
+import { StrideshiftTeamSection } from '@/components/team/strideshift-team-section'
 
 interface TeamMember {
   id: string
@@ -223,6 +224,14 @@ export function TeamManagement() {
         </Card>
       )}
 
+      {/* Show StrideShift team section if that org is selected */}
+      {organizations.find(o => o.id === selectedOrgId)?.name === 'StrideShift' ? (
+        <StrideshiftTeamSection 
+          organizationId={selectedOrgId} 
+          searchQuery={searchQuery}
+        />
+      ) : (
+      <>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -438,6 +447,8 @@ export function TeamManagement() {
             setShowInviteDialog(false)
           }}
         />
+      )}
+      </>
       )}
     </div>
   )

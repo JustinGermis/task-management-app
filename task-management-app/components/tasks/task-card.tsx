@@ -148,15 +148,27 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
 
               {/* Assignees */}
               {assignees.length > 0 && (
-                <div className="flex -space-x-2">
-                  {assignees.slice(0, 3).map((assignee) => (
-                    <Avatar key={assignee.id} className="h-6 w-6 border-2 border-background">
-                      <AvatarImage src={assignee.profiles?.avatar_url || ''} />
-                      <AvatarFallback className="text-xs">
-                        {assignee.profiles?.full_name?.slice(0, 2).toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  ))}
+                <div className="flex items-center -space-x-2">
+                  {assignees.slice(0, 3).map((assignee) => {
+                    // Check if this was an AI assignment
+                    const isAutoAssigned = task.metadata?.autoAssigned && 
+                                         task.metadata?.assignedEmail === assignee.profiles?.email
+                    
+                    return (
+                      <div key={assignee.id} className="relative group/avatar">
+                        <Avatar className={`h-6 w-6 border-2 border-background ${isAutoAssigned ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}>
+                          <AvatarImage src={assignee.profiles?.avatar_url || ''} />
+                          <AvatarFallback className={`text-xs ${isAutoAssigned ? 'bg-blue-100 text-blue-700' : ''}`}>
+                            {assignee.profiles?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 
+                             assignee.profiles?.email?.slice(0, 2).toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        {isAutoAssigned && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border border-background" title="Auto-assigned by AI" />
+                        )}
+                      </div>
+                    )
+                  })}
                   {assignees.length > 3 && (
                     <Avatar className="h-6 w-6 border-2 border-background">
                       <AvatarFallback className="text-xs">

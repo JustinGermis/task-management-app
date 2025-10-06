@@ -106,6 +106,41 @@ function DraggableTaskItem({ task, onTaskClick }: DraggableTaskItemProps) {
                 <span>Due {formatDate(task.due_date || '')}</span>
               </div>
             )}
+            
+            {/* Assignees */}
+            {task.assignees && task.assignees.length > 0 && (
+              <div className="flex items-center space-x-1">
+                <span>Assigned to:</span>
+                <div className="flex items-center -space-x-1">
+                  {task.assignees.slice(0, 2).map((assignee: any) => {
+                    const isAutoAssigned = task.metadata?.autoAssigned && 
+                                         task.metadata?.assignedEmail === assignee.profiles?.email
+                    const initials = assignee.profiles?.full_name
+                      ? assignee.profiles.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+                      : assignee.profiles?.email?.slice(0, 2).toUpperCase() || 'U'
+                    
+                    return (
+                      <div key={assignee.id} className="relative">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium border border-background ${
+                          isAutoAssigned ? 'bg-blue-100 text-blue-700' : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {initials}
+                        </div>
+                        {isAutoAssigned && (
+                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-blue-500 rounded-full border border-background" />
+                        )}
+                      </div>
+                    )
+                  })}
+                  {task.assignees.length > 2 && (
+                    <span className="ml-1 text-muted-foreground">
+                      +{task.assignees.length - 2}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            
             <span>Created {formatDate(task.created_at || '')}</span>
           </div>
         </div>

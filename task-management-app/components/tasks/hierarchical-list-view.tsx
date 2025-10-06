@@ -249,6 +249,37 @@ function DraggableTaskRow({
                       <span className="font-medium">{formatDate(node.due_date)}</span>
                     </div>
                   )}
+                  
+                  {/* Assignees */}
+                  {node.assignees && node.assignees.length > 0 && (
+                    <div className="flex items-center -space-x-1">
+                      {node.assignees.slice(0, 3).map((assignee: any) => {
+                        const isAutoAssigned = node.metadata?.autoAssigned && 
+                                             node.metadata?.assignedEmail === assignee.profiles?.email
+                        const initials = assignee.profiles?.full_name
+                          ? assignee.profiles.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+                          : assignee.profiles?.email?.slice(0, 2).toUpperCase() || 'U'
+                        
+                        return (
+                          <div key={assignee.id} className="relative">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border-2 border-background ${
+                              isAutoAssigned ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-500' : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {initials}
+                            </div>
+                            {isAutoAssigned && (
+                              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full border border-background" />
+                            )}
+                          </div>
+                        )
+                      })}
+                      {node.assignees.length > 3 && (
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-muted text-muted-foreground border-2 border-background">
+                          +{node.assignees.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -599,7 +630,16 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
       <DraggableTaskRow
         key={node.id}
         node={node}
-        onTaskClick={setSelectedTask}
+        onTaskClick={(task) => {
+          console.log('HierarchicalListView - Task clicked:', {
+            id: task.id,
+            title: task.title,
+            metadata: task.metadata,
+            hasMetadata: !!task.metadata,
+            metadataKeys: task.metadata ? Object.keys(task.metadata) : []
+          })
+          setSelectedTask(task)
+        }}
         onCreateSubtask={handleCreateSubtask}
         onCreateSubsection={handleCreateSubsection}
         onTaskDelete={handleTaskDeleted}

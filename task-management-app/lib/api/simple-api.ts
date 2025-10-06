@@ -173,6 +173,36 @@ export async function getTasks(projectId?: string) {
     }
 
     const { data: tasks } = await query
+    
+    // If we have tasks, fetch their assignees and project details
+    if (tasks && tasks.length > 0) {
+      // Get all unique project IDs
+      const projectIds = [...new Set(tasks.map(t => t.project_id).filter(Boolean))]
+      
+      // Fetch project details
+      const { data: projectDetails } = await supabase
+        .from('projects')
+        .select('*')
+        .in('id', projectIds)
+      
+      const tasksWithDetails = await Promise.all(
+        tasks.map(async (task) => {
+          // Get assignees
+          const assignees = await getTaskAssignees(task.id)
+          
+          // Find project for this task
+          const project = projectDetails?.find(p => p.id === task.project_id) || null
+          
+          return {
+            ...task,
+            assignees,
+            project
+          }
+        })
+      )
+      return tasksWithDetails
+    }
+    
     return tasks || []
   } catch (error) {
     console.error('Failed to get tasks:', error)
@@ -487,7 +517,17 @@ export async function updateTask(taskId: string, updates: any) {
       throw error
     }
     
-    console.log('Task updated successfully:', task)
+    // Fetch assignees for the updated task
+    if (task) {
+      const assignees = await getTaskAssignees(task.id)
+      const taskWithAssignees = {
+        ...task,
+        assignees
+      }
+      console.log('Task updated successfully:', taskWithAssignees)
+      return taskWithAssignees
+    }
+    
     return task
   } catch (error: any) {
     console.error('Failed to update task:', {
@@ -511,6 +551,29 @@ export async function getTask(taskId: string) {
       .single()
 
     if (error) throw error
+    
+    // Fetch assignees and project for this task
+    if (task) {
+      const assignees = await getTaskAssignees(task.id)
+      
+      // Fetch project details
+      let project = null
+      if (task.project_id) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', task.project_id)
+          .single()
+        project = projectData
+      }
+      
+      return {
+        ...task,
+        assignees,
+        project
+      }
+    }
+    
     return task
   } catch (error) {
     console.error('Failed to get task:', error)
@@ -660,10 +723,23 @@ export async function getTaskAssignees(taskId: string) {
   try {
     const { data: assignees } = await supabase
       .from('task_assignees')
-      .select('*, profiles!user_id(*)')
+      .select('*')
       .eq('task_id', taskId)
-
-    return assignees || []
+    
+    if (!assignees || assignees.length === 0) return []
+    
+    // Get profiles separately
+    const profileIds = assignees.map(a => a.user_id).filter(Boolean)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', profileIds)
+    
+    // Combine assignees with their profiles
+    return assignees.map(assignee => ({
+      ...assignee,
+      profiles: profiles?.find(p => p.id === assignee.user_id) || null
+    }))
   } catch (error) {
     console.error('Failed to get assignees:', error)
     return []
