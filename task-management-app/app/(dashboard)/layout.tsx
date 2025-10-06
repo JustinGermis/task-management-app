@@ -1,17 +1,9 @@
-import { getUser } from '@/lib/auth-server'
-import { redirect } from 'next/navigation'
-import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { DashboardLayoutWrapper } from '@/components/layout/dashboard-layout-wrapper'
 
-export default async function AppLayout({
+export default function AppLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const user = await getUser()
-
-  if (!user) {
-    redirect('/auth/login')
-  }
-
-  return <DashboardLayout user={user}>{children}</DashboardLayout>
+  return <DashboardLayoutWrapper>{children}</DashboardLayoutWrapper>
 }
