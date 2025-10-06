@@ -1,0 +1,11 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="32" height="32" rx="6" fill="#4F46E5"/>
+
+  <!-- Checkmark -->
+  <path d="M9 16.5L13.5 21L23 11" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Subtle list lines -->
+  <line x1="8" y1="8" x2="14" y2="8" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+  <line x1="8" y1="24" x2="12" y2="24" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+</svg>
