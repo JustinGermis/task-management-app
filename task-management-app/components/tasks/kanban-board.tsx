@@ -281,21 +281,41 @@ export function KanbanBoard() {
   const handleTaskCreated = (newTask: TaskWithDetails) => {
     setTasks(prev => [...prev, newTask])
     setIsCreateDialogOpen(false)
+    // Invalidate cache so navigating away and back shows the new task
+    cache.invalidate(CACHE_KEYS.TASKS(selectedProjectId))
+    if (selectedProjectId !== 'all') {
+      cache.invalidate(CACHE_KEYS.TASKS('all'))
+    }
   }
 
   const handleTaskUpdated = (updatedTask: TaskWithDetails) => {
-    setTasks(prev => prev.map(t => 
+    setTasks(prev => prev.map(t =>
       t.id === updatedTask.id ? updatedTask : t
     ))
+    // Invalidate cache so changes persist across navigation
+    cache.invalidate(CACHE_KEYS.TASKS(selectedProjectId))
+    if (selectedProjectId !== 'all') {
+      cache.invalidate(CACHE_KEYS.TASKS('all'))
+    }
   }
 
   const handleTaskDeleted = (taskId: string) => {
     setTasks(prev => prev.filter(t => t.id !== taskId))
     setSelectedTask(null)
+    // Invalidate cache so deletion persists across navigation
+    cache.invalidate(CACHE_KEYS.TASKS(selectedProjectId))
+    if (selectedProjectId !== 'all') {
+      cache.invalidate(CACHE_KEYS.TASKS('all'))
+    }
   }
 
   const handleTaskCloned = (clonedTask: TaskWithDetails) => {
     setTasks(prev => [...prev, clonedTask])
+    // Invalidate cache so cloned task shows up after navigation
+    cache.invalidate(CACHE_KEYS.TASKS(selectedProjectId))
+    if (selectedProjectId !== 'all') {
+      cache.invalidate(CACHE_KEYS.TASKS('all'))
+    }
   }
 
   if (isLoading) {
