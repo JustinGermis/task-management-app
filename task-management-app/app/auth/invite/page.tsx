@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { CheckCircle2, AlertCircle, Loader2, UserPlus, LogIn } from 'lucide-reac
 import { checkInvitation, acceptInvitation } from '@/lib/api/simple-api'
 import { createClient } from '@/lib/supabase/client'
 
-export default function InvitePage() {
+function InvitePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inviteCode = searchParams.get('code')
@@ -269,5 +269,17 @@ export default function InvitePage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function InvitePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <InvitePageContent />
+    </Suspense>
   )
 }
