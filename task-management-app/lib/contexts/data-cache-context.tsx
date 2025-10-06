@@ -17,7 +17,7 @@ interface DataCacheContextType {
 
 const DataCacheContext = createContext<DataCacheContextType | null>(null)
 
-const DEFAULT_MAX_AGE = 30000 // 30 seconds
+const DEFAULT_MAX_AGE = 300000 // 5 minutes
 
 export function DataCacheProvider({ children }: { children: ReactNode }) {
   const [cache, setCache] = useState<Map<string, CacheEntry<any>>>(new Map())
