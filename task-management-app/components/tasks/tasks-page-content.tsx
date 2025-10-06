@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { LayoutGrid, List, Network } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { KanbanBoard } from './kanban-board'
@@ -9,8 +9,24 @@ import { HierarchicalListView } from './hierarchical-list-view'
 
 type ViewMode = 'kanban' | 'list' | 'hierarchy'
 
+const VIEW_MODE_KEY = 'tasks:viewMode'
+
 export function TasksPageContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
+
+  // Load view mode from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(VIEW_MODE_KEY)
+    if (saved && ['kanban', 'list', 'hierarchy'].includes(saved)) {
+      setViewMode(saved as ViewMode)
+    }
+  }, [])
+
+  // Save view mode to localStorage when it changes
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode)
+    localStorage.setItem(VIEW_MODE_KEY, mode)
+  }
 
   return (
     <div className="space-y-6">
@@ -20,7 +36,7 @@ export function TasksPageContent() {
           <Button
             variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setViewMode('kanban')}
+            onClick={() => handleViewModeChange('kanban')}
             className="flex items-center space-x-2"
           >
             <LayoutGrid className="h-4 w-4" />
@@ -29,7 +45,7 @@ export function TasksPageContent() {
           <Button
             variant={viewMode === 'list' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setViewMode('list')}
+            onClick={() => handleViewModeChange('list')}
             className="flex items-center space-x-2"
           >
             <List className="h-4 w-4" />
@@ -38,7 +54,7 @@ export function TasksPageContent() {
           <Button
             variant={viewMode === 'hierarchy' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setViewMode('hierarchy')}
+            onClick={() => handleViewModeChange('hierarchy')}
             className="flex items-center space-x-2"
           >
             <Network className="h-4 w-4" />

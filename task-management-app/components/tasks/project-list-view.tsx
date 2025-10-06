@@ -37,10 +37,18 @@ import { TaskWithDetails, Project } from '@/lib/types'
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { getRegularTasks } from '@/lib/task-utils'
+import { useDataCache } from '@/lib/contexts/data-cache-context'
 
 interface ProjectListViewProps {
   projectId?: string
 }
+
+const CACHE_KEYS = {
+  PROJECTS: 'projectListView:projects',
+  TASKS: (projectId: string) => `projectListView:tasks:${projectId}`,
+}
+
+const DROPDOWN_KEY = 'projectListView:selectedProjectId'
 
 interface DraggableTaskItemProps {
   task: TaskWithDetails
@@ -224,9 +232,14 @@ function DroppableStatusSection({ status, tasks, onTaskClick, onCreateTask }: Dr
 }
 
 export function ProjectListView({ projectId }: ProjectListViewProps) {
+  const cache = useDataCache()
   const [tasks, setTasks] = useState<TaskWithDetails[]>([])
   const [projects, setProjects] = useState<Project[]>([])
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || 'all')
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
+    if (projectId) return projectId
+    const saved = localStorage.getItem(DROPDOWN_KEY)
+    return saved || 'all'
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -262,6 +275,10 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
 
   useEffect(() => {
     loadTasks()
+    // Save selection to localStorage (only if not passed as prop)
+    if (!projectId) {
+      localStorage.setItem(DROPDOWN_KEY, selectedProjectId)
+    }
   }, [selectedProjectId])
 
   // Set up real-time task updates
@@ -283,10 +300,28 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
 
   useTaskUpdates(selectedProjectId || null, handleTaskChange)
 
+  // Helper to update both state and cache
+  const updateTasksAndCache = (updater: (prev: TaskWithDetails[]) => TaskWithDetails[]) => {
+    setTasks(prev => {
+      const newTasks = updater(prev)
+      // Update cache with new state
+      cache.set(CACHE_KEYS.TASKS(selectedProjectId), newTasks)
+      return newTasks
+    })
+  }
+
   const loadProjects = async () => {
+    // Check cache first
+    const cached = cache.get(CACHE_KEYS.PROJECTS)
+    if (cached && !cache.isStale(CACHE_KEYS.PROJECTS)) {
+      setProjects(cached)
+      return
+    }
+
     try {
       const data = await getProjects()
       setProjects(data)
+      cache.set(CACHE_KEYS.PROJECTS, data)
       if (!selectedProjectId && data.length > 0) {
         setSelectedProjectId(data[0].id)
       }
@@ -296,12 +331,23 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
   }
 
   const loadTasks = async () => {
+    const cacheKey = CACHE_KEYS.TASKS(selectedProjectId)
+
+    // Check cache first
+    const cached = cache.get(cacheKey)
+    if (cached && !cache.isStale(cacheKey)) {
+      setTasks(cached)
+      setIsLoading(false)
+      return
+    }
+
     try {
       const effectiveProjectId = projectId || selectedProjectId
       const data = await getTasks(effectiveProjectId === 'all' ? undefined : effectiveProjectId)
       // Filter out sections - list view only shows regular tasks
       const regularTasks = getRegularTasks(data)
       setTasks(regularTasks)
+      cache.set(cacheKey, regularTasks)
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
@@ -310,9 +356,13 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
   }
 
   const handleTaskCreated = (newTask: TaskWithDetails) => {
-    setTasks(prev => [...prev, newTask])
+    updateTasksAndCache(prev => [...prev, newTask])
     setIsCreateDialogOpen(false)
     setCreateTaskStatus(undefined)
+    // Also invalidate 'all' cache if we're in a specific project
+    if (selectedProjectId !== 'all') {
+      cache.invalidate(CACHE_KEYS.TASKS('all'))
+    }
   }
 
   const handleCreateTaskInStatus = (status: string) => {
@@ -385,8 +435,8 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
         updates.position = newPosition
       }
 
-      // Optimistic update
-      setTasks(prev => prev.map(t => 
+      // Optimistic update - update both state and cache
+      updateTasksAndCache(prev => prev.map(t =>
         t.id === taskId ? { ...t, ...updates } : t
       ))
 
@@ -395,26 +445,36 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
       } catch (error) {
         console.error('Failed to update task:', error)
         // Revert optimistic update
-        setTasks(prev => prev.map(t => 
-          t.id === taskId ? task : t
-        ))
+        loadTasks()
       }
     }
   }
 
   const handleTaskUpdated = (updatedTask: TaskWithDetails) => {
-    setTasks(prev => prev.map(t => 
+    updateTasksAndCache(prev => prev.map(t =>
       t.id === updatedTask.id ? updatedTask : t
     ))
+    // Also invalidate 'all' cache if we're in a specific project
+    if (selectedProjectId !== 'all') {
+      cache.invalidate(CACHE_KEYS.TASKS('all'))
+    }
   }
 
   const handleTaskDeleted = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId))
+    updateTasksAndCache(prev => prev.filter(t => t.id !== taskId))
     setSelectedTask(null)
+    // Also invalidate 'all' cache if we're in a specific project
+    if (selectedProjectId !== 'all') {
+      cache.invalidate(CACHE_KEYS.TASKS('all'))
+    }
   }
 
   const handleTaskCloned = (clonedTask: TaskWithDetails) => {
-    setTasks(prev => [...prev, clonedTask])
+    updateTasksAndCache(prev => [...prev, clonedTask])
+    // Also invalidate 'all' cache if we're in a specific project
+    if (selectedProjectId !== 'all') {
+      cache.invalidate(CACHE_KEYS.TASKS('all'))
+    }
   }
 
   const toggleTaskExpansion = (taskId: string) => {

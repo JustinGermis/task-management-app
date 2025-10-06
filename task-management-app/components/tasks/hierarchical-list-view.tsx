@@ -43,10 +43,18 @@ import { TaskWithDetails, Project } from '@/lib/types'
 import { TASK_PRIORITIES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { isSection, getSectionDisplayName, getRegularTasks } from '@/lib/task-utils'
+import { useDataCache } from '@/lib/contexts/data-cache-context'
 
 interface HierarchicalListViewProps {
   projectId?: string
 }
+
+const CACHE_KEYS = {
+  PROJECTS: 'hierarchicalListView:projects',
+  TASKS: (projectId: string) => `hierarchicalListView:tasks:${projectId}`,
+}
+
+const DROPDOWN_KEY = 'hierarchicalListView:selectedProjectId'
 
 interface TaskTreeNode extends TaskWithDetails {
   children: TaskTreeNode[]
@@ -349,9 +357,14 @@ function DraggableTaskRow({
 }
 
 export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
+  const cache = useDataCache()
   const [tasks, setTasks] = useState<TaskWithDetails[]>([])
   const [projects, setProjects] = useState<Project[]>([])
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '')
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
+    if (projectId) return projectId
+    const saved = localStorage.getItem(DROPDOWN_KEY)
+    return saved || ''
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -389,6 +402,10 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
 
   useEffect(() => {
     loadTasks()
+    // Save selection to localStorage (only if not passed as prop)
+    if (!projectId && selectedProjectId) {
+      localStorage.setItem(DROPDOWN_KEY, selectedProjectId)
+    }
   }, [selectedProjectId])
 
   // Set up real-time task updates
@@ -410,10 +427,31 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
 
   useTaskUpdates(selectedProjectId || null, handleTaskChange)
 
+  // Helper to update both state and cache
+  const updateTasksAndCache = (updater: (prev: TaskWithDetails[]) => TaskWithDetails[]) => {
+    setTasks(prev => {
+      const newTasks = updater(prev)
+      // Update cache with new state
+      const effectiveProjectId = projectId || selectedProjectId
+      if (effectiveProjectId) {
+        cache.set(CACHE_KEYS.TASKS(effectiveProjectId), newTasks)
+      }
+      return newTasks
+    })
+  }
+
   const loadProjects = async () => {
+    // Check cache first
+    const cached = cache.get(CACHE_KEYS.PROJECTS)
+    if (cached && !cache.isStale(CACHE_KEYS.PROJECTS)) {
+      setProjects(cached)
+      return
+    }
+
     try {
       const data = await getProjects()
       setProjects(data)
+      cache.set(CACHE_KEYS.PROJECTS, data)
       if (!selectedProjectId) {
         if (data.length > 0) {
           setSelectedProjectId(data[0].id)
@@ -425,14 +463,27 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
   }
 
   const loadTasks = async () => {
+    const effectiveProjectId = projectId || selectedProjectId
+    if (!effectiveProjectId) {
+      setTasks([])
+      setIsLoading(false)
+      return
+    }
+
+    const cacheKey = CACHE_KEYS.TASKS(effectiveProjectId)
+
+    // Check cache first
+    const cached = cache.get(cacheKey)
+    if (cached && !cache.isStale(cacheKey)) {
+      setTasks(cached)
+      setIsLoading(false)
+      return
+    }
+
     try {
-      const effectiveProjectId = projectId || selectedProjectId
-      if (effectiveProjectId) {
-        const data = await getTasks(effectiveProjectId)
-        setTasks(data)
-      } else {
-        setTasks([])
-      }
+      const data = await getTasks(effectiveProjectId)
+      setTasks(data)
+      cache.set(cacheKey, data)
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
@@ -441,30 +492,30 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
   }
 
   const handleTaskCreated = (newTask: TaskWithDetails) => {
-    setTasks(prev => [...prev, newTask])
+    updateTasksAndCache(prev => [...prev, newTask])
     setIsCreateDialogOpen(false)
     setCreateParentId(undefined)
   }
 
   const handleSectionCreated = (newSection: TaskWithDetails) => {
-    setTasks(prev => [...prev, newSection])
+    updateTasksAndCache(prev => [...prev, newSection])
     setIsCreateSectionDialogOpen(false)
     setCreateSectionParentId(undefined)
   }
 
   const handleTaskUpdated = (updatedTask: TaskWithDetails) => {
-    setTasks(prev => prev.map(t => 
+    updateTasksAndCache(prev => prev.map(t =>
       t.id === updatedTask.id ? updatedTask : t
     ))
   }
 
   const handleTaskDeleted = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId))
+    updateTasksAndCache(prev => prev.filter(t => t.id !== taskId))
     setSelectedTask(null)
   }
 
   const handleTaskCloned = (clonedTask: TaskWithDetails) => {
-    setTasks(prev => [...prev, clonedTask])
+    updateTasksAndCache(prev => [...prev, clonedTask])
   }
 
   const toggleTaskExpansion = (taskId: string) => {
@@ -537,8 +588,8 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
 
     // Only update if parent actually changed
     if (task.parent_task_id !== newParentId) {
-      // Optimistic update
-      setTasks(prev => prev.map(t => 
+      // Optimistic update - update both state and cache
+      updateTasksAndCache(prev => prev.map(t =>
         t.id === taskId ? { ...t, parent_task_id: newParentId } : t
       ))
 
@@ -547,9 +598,7 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
       } catch (error) {
         console.error('Failed to update task:', error)
         // Revert optimistic update
-        setTasks(prev => prev.map(t => 
-          t.id === taskId ? { ...t, parent_task_id: task.parent_task_id } : t
-        ))
+        loadTasks()
       }
     }
   }

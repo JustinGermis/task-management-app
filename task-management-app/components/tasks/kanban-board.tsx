@@ -38,6 +38,8 @@ const CACHE_KEYS = {
   TASKS: (projectId: string) => `kanban:tasks:${projectId}`,
 }
 
+const DROPDOWN_KEY = 'kanban:selectedProjectId'
+
 const COLUMNS = TASK_STATUSES.map(status => ({
   id: status.id,
   title: status.label,
@@ -54,7 +56,10 @@ export function KanbanBoard() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [projects, setProjects] = useState<Project[]>([])
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all')
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
+    const saved = localStorage.getItem(DROPDOWN_KEY)
+    return saved || 'all'
+  })
 
   // Configure sensors for drag detection
   const sensors = useSensors(
@@ -81,6 +86,8 @@ export function KanbanBoard() {
 
   useEffect(() => {
     loadTasks()
+    // Save selection to localStorage
+    localStorage.setItem(DROPDOWN_KEY, selectedProjectId)
   }, [selectedProjectId])
 
   // Helper to update both state and cache
