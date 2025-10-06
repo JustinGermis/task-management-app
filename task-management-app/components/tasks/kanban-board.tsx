@@ -304,7 +304,7 @@ export function KanbanBoard() {
           <h2 className="text-2xl font-bold">Tasks</h2>
           <p className="text-muted-foreground">Manage tasks with a Kanban board</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => setIsCreateDialogOpen(true)} className="flex items-center">
           <Plus className="mr-2 h-4 w-4" />
           Add Task
         </Button>

@@ -205,7 +205,7 @@ export function DashboardContent({ userName }: DashboardContentProps) {
                 </div>
                 <p className="text-muted-foreground mb-4">No tasks yet. Create your first task to get started.</p>
                 <Button asChild>
-                  <Link href="/tasks">
+                  <Link href="/tasks" className="flex items-center">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Task
                   </Link>
@@ -293,7 +293,7 @@ export function DashboardContent({ userName }: DashboardContentProps) {
                 </div>
                 <p className="text-muted-foreground mb-4">No projects yet. Create your first project to get started.</p>
                 <Button asChild>
-                  <Link href="/projects">
+                  <Link href="/projects" className="flex items-center">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Project
                   </Link>
