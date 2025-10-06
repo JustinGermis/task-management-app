@@ -63,14 +63,16 @@ export function TasksPageContent() {
         </div>
       </div>
 
-      {/* View Content */}
-      {viewMode === 'kanban' ? (
+      {/* View Content - keep all views mounted to preserve cache */}
+      <div className={viewMode === 'kanban' ? 'block' : 'hidden'}>
         <KanbanBoard />
-      ) : viewMode === 'list' ? (
+      </div>
+      <div className={viewMode === 'list' ? 'block' : 'hidden'}>
         <ProjectListView />
-      ) : (
+      </div>
+      <div className={viewMode === 'hierarchy' ? 'block' : 'hidden'}>
         <HierarchicalListView />
-      )}
+      </div>
     </div>
   )
 }
