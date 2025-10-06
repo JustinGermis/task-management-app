@@ -13,7 +13,6 @@ import {
   LogOut,
   Building,
   Plus,
-  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -95,8 +94,7 @@ export function Sidebar({ user, className }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-          const isNavigating = isPending && pendingHref === item.href
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/') || (isPending && pendingHref === item.href)
           return (
             <Link
               key={item.name}
@@ -110,22 +108,14 @@ export function Sidebar({ user, className }: SidebarProps) {
                 }
               }}
               className={cn(
-                'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors relative',
+                'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                isNavigating && 'opacity-70'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
-              {isNavigating ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <item.icon className="h-5 w-5" />
-              )}
+              <item.icon className="h-5 w-5" />
               <span>{item.name}</span>
-              {isNavigating && (
-                <div className="absolute inset-0 bg-accent/20 rounded-lg animate-pulse"></div>
-              )}
             </Link>
           )
         })}
