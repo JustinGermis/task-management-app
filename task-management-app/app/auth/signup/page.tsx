@@ -60,26 +60,12 @@ export default function SignupPage() {
       return
     }
 
-    const { data, error } = await signUp(email, password, fullName)
+    const { data, error } = await signUp(email, password, fullName, inviteCode || undefined)
 
     if (error) {
       setError(error.message)
       setIsLoading(false)
     } else {
-      // If there's an invite code, try to accept it immediately
-      if (inviteCode) {
-        try {
-          const { acceptInvitation } = await import('@/lib/api/simple-api')
-          await acceptInvitation(inviteCode)
-          // Redirect directly to dashboard
-          router.push('/dashboard')
-          router.refresh()
-          return
-        } catch (error) {
-          console.error('Failed to auto-accept invitation:', error)
-          // Still show success, user can accept manually
-        }
-      }
       setSuccess(true)
       setIsLoading(false)
     }
@@ -98,7 +84,14 @@ export default function SignupPage() {
           <CardContent>
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground text-center">
-                Click the link in your email to verify your account and start using the app.
+                {inviteCode ? (
+                  <>
+                    Click the link in your email to verify your account.
+                    You&apos;ll then be redirected to accept your team invitation.
+                  </>
+                ) : (
+                  'Click the link in your email to verify your account and start using the app.'
+                )}
               </div>
               <Button
                 variant="outline"

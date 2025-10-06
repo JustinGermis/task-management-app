@@ -1,17 +1,24 @@
 import { createClient } from '@/lib/supabase/client'
 import { AuthUser } from '@/lib/types'
 
-export async function signUp(email: string, password: string, fullName: string) {
+export async function signUp(email: string, password: string, fullName: string, inviteCode?: string) {
   const supabase = createClient()
-  
+
+  const options: any = {
+    data: {
+      full_name: fullName,
+    }
+  }
+
+  // If there's an invite code, redirect to invite page after email confirmation
+  if (inviteCode) {
+    options.emailRedirectTo = `${window.location.origin}/auth/invite?code=${inviteCode}`
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      data: {
-        full_name: fullName,
-      }
-    }
+    options
   })
 
   return { data, error }
