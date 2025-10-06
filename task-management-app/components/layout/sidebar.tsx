@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -12,6 +13,7 @@ import {
   LogOut,
   Building,
   Plus,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -62,6 +64,8 @@ const navigation = [
 export function Sidebar({ user, className }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
 
   const handleSignOut = async () => {
     await signOut()
@@ -92,19 +96,36 @@ export function Sidebar({ user, className }: SidebarProps) {
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+          const isNavigating = isPending && pendingHref === item.href
           return (
             <Link
               key={item.name}
               href={item.href}
+              onClick={(e) => {
+                if (pathname !== item.href) {
+                  setPendingHref(item.href)
+                  startTransition(() => {
+                    router.push(item.href)
+                  })
+                }
+              }}
               className={cn(
-                'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors relative',
                 isActive
                   ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                isNavigating && 'opacity-70'
               )}
             >
-              <item.icon className="h-5 w-5" />
+              {isNavigating ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <item.icon className="h-5 w-5" />
+              )}
               <span>{item.name}</span>
+              {isNavigating && (
+                <div className="absolute inset-0 bg-accent/20 rounded-lg animate-pulse"></div>
+              )}
             </Link>
           )
         })}

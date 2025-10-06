@@ -70,6 +70,18 @@ export function StrideshiftTeamSection({ organizationId, searchQuery, currentUse
     loadTeamMembers()
   }, [organizationId])
 
+  const handleRoleChange = async (memberId: string, newRole: string) => {
+    await onRoleChange(memberId, newRole)
+    // Reload team members after role change
+    await loadTeamMembers()
+  }
+
+  const handleRemoveMember = async (memberId: string) => {
+    await onRemoveMember(memberId)
+    // Reload team members after removal
+    await loadTeamMembers()
+  }
+
   const loadTeamMembers = async () => {
     try {
       const { data: teamData } = await supabase
@@ -245,7 +257,7 @@ export function StrideshiftTeamSection({ organizationId, searchQuery, currentUse
                       {isAdmin && member.user_id !== currentUser?.id ? (
                         <Select
                           value={member.role}
-                          onValueChange={(value) => onRoleChange(member.id, value)}
+                          onValueChange={(value) => handleRoleChange(member.id, value)}
                         >
                           <SelectTrigger className="w-28">
                             <SelectValue />
@@ -271,7 +283,7 @@ export function StrideshiftTeamSection({ organizationId, searchQuery, currentUse
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => onRemoveMember(member.id)}
+                            onClick={() => handleRemoveMember(member.id)}
                           >
                             <UserX className="h-4 w-4" />
                           </Button>
