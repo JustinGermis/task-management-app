@@ -83,6 +83,16 @@ export function KanbanBoard() {
     loadTasks()
   }, [selectedProjectId])
 
+  // Helper to update both state and cache
+  const updateTasksAndCache = (updater: (prev: TaskWithDetails[]) => TaskWithDetails[]) => {
+    setTasks(prev => {
+      const newTasks = updater(prev)
+      // Update cache with new state
+      cache.set(CACHE_KEYS.TASKS(selectedProjectId), newTasks)
+      return newTasks
+    })
+  }
+
   // Set up real-time task updates
   const handleTaskChange = useCallback((type: 'INSERT' | 'UPDATE' | 'DELETE', task: any) => {
     setTasks(prev => {
@@ -229,8 +239,8 @@ export function KanbanBoard() {
             }
           })
           
-          setTasks(updatedTasks)
-          
+          updateTasksAndCache(() => updatedTasks)
+
           // Update the moved task position in the database
           try {
             await updateTask(taskId, { position: newPos * 100 })
@@ -261,8 +271,8 @@ export function KanbanBoard() {
 
     // Only update if status changed
     if (task.status !== newStatus) {
-      // Optimistic update
-      setTasks(prev => prev.map(t => 
+      // Optimistic update - update both state and cache
+      updateTasksAndCache(prev => prev.map(t =>
         t.id === taskId ? { ...t, status: newStatus, position: newPosition ?? null } : t
       ))
 
@@ -279,40 +289,36 @@ export function KanbanBoard() {
   }
 
   const handleTaskCreated = (newTask: TaskWithDetails) => {
-    setTasks(prev => [...prev, newTask])
+    updateTasksAndCache(prev => [...prev, newTask])
     setIsCreateDialogOpen(false)
-    // Invalidate cache so navigating away and back shows the new task
-    cache.invalidate(CACHE_KEYS.TASKS(selectedProjectId))
+    // Also invalidate 'all' cache if we're in a specific project
     if (selectedProjectId !== 'all') {
       cache.invalidate(CACHE_KEYS.TASKS('all'))
     }
   }
 
   const handleTaskUpdated = (updatedTask: TaskWithDetails) => {
-    setTasks(prev => prev.map(t =>
+    updateTasksAndCache(prev => prev.map(t =>
       t.id === updatedTask.id ? updatedTask : t
     ))
-    // Invalidate cache so changes persist across navigation
-    cache.invalidate(CACHE_KEYS.TASKS(selectedProjectId))
+    // Also invalidate 'all' cache if we're in a specific project
     if (selectedProjectId !== 'all') {
       cache.invalidate(CACHE_KEYS.TASKS('all'))
     }
   }
 
   const handleTaskDeleted = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId))
+    updateTasksAndCache(prev => prev.filter(t => t.id !== taskId))
     setSelectedTask(null)
-    // Invalidate cache so deletion persists across navigation
-    cache.invalidate(CACHE_KEYS.TASKS(selectedProjectId))
+    // Also invalidate 'all' cache if we're in a specific project
     if (selectedProjectId !== 'all') {
       cache.invalidate(CACHE_KEYS.TASKS('all'))
     }
   }
 
   const handleTaskCloned = (clonedTask: TaskWithDetails) => {
-    setTasks(prev => [...prev, clonedTask])
-    // Invalidate cache so cloned task shows up after navigation
-    cache.invalidate(CACHE_KEYS.TASKS(selectedProjectId))
+    updateTasksAndCache(prev => [...prev, clonedTask])
+    // Also invalidate 'all' cache if we're in a specific project
     if (selectedProjectId !== 'all') {
       cache.invalidate(CACHE_KEYS.TASKS('all'))
     }
