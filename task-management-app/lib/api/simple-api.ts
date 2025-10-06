@@ -148,6 +148,40 @@ export async function createProject(data: {
   }
 }
 
+export async function deleteProject(projectId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) throw new Error('Not authenticated')
+
+  try {
+    // Check if user has permission to delete (must be admin or creator)
+    const { data: membership } = await supabase
+      .from('project_members')
+      .select('role')
+      .eq('project_id', projectId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!membership || membership.role !== 'admin') {
+      throw new Error('Only project admins can delete projects')
+    }
+
+    // Delete the project (cascading deletes will handle related data)
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId)
+
+    if (error) throw error
+
+    return true
+  } catch (error) {
+    console.error('Failed to delete project:', error)
+    throw error
+  }
+}
+
 // ============= TASKS =============
 export async function getTasks(projectId?: string) {
   const supabase = createClient()

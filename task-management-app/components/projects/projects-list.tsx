@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getProjects } from '@/lib/api/simple-api'
+import { getProjects, deleteProject } from '@/lib/api/simple-api'
 import { formatDate } from '@/lib/utils'
 
 export function ProjectsList({ organizationId }: { organizationId?: string }) {
@@ -36,10 +36,15 @@ export function ProjectsList({ organizationId }: { organizationId?: string }) {
   }
 
   const handleDelete = async (projectId: string) => {
-    if (!confirm('Are you sure you want to delete this project?')) return
-    
-    // TODO: Implement delete
-    await loadProjects()
+    if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) return
+
+    try {
+      await deleteProject(projectId)
+      await loadProjects()
+    } catch (error) {
+      console.error('Failed to delete project:', error)
+      alert('Failed to delete project. You may not have permission.')
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -61,7 +66,7 @@ export function ProjectsList({ organizationId }: { organizationId?: string }) {
             <h2 className="text-3xl font-bold tracking-tight">Projects</h2>
             <p className="text-muted-foreground">Manage your projects and tasks</p>
           </div>
-          <Button disabled className="opacity-50">
+          <Button disabled className="opacity-50 flex items-center">
             <Plus className="mr-2 h-4 w-4" />
             New Project
           </Button>
@@ -93,7 +98,7 @@ export function ProjectsList({ organizationId }: { organizationId?: string }) {
             <p className="text-muted-foreground">Manage your projects and tasks</p>
           </div>
           <Button asChild className="bg-primary hover:bg-primary/90">
-            <Link href="/projects/new">
+            <Link href="/projects/new" className="flex items-center">
               <Plus className="mr-2 h-4 w-4" />
               New Project
             </Link>
@@ -118,7 +123,7 @@ export function ProjectsList({ organizationId }: { organizationId?: string }) {
               </div>
               <p className="text-muted-foreground mb-4">No projects yet. Create your first project to start managing tasks.</p>
               <Button asChild>
-                <Link href="/projects/new">
+                <Link href="/projects/new" className="flex items-center">
                   <Plus className="mr-2 h-4 w-4" />
                   Create Project
                 </Link>
@@ -138,7 +143,7 @@ export function ProjectsList({ organizationId }: { organizationId?: string }) {
           <p className="text-muted-foreground">Manage your projects and tasks</p>
         </div>
         <Button asChild className="bg-primary hover:bg-primary/90">
-          <Link href="/projects/new">
+          <Link href="/projects/new" className="flex items-center">
             <Plus className="mr-2 h-4 w-4" />
             New Project
           </Link>
