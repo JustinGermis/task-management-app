@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from './dashboard-layout'
+import { UserProvider } from '@/lib/contexts/user-context'
 import { AuthUser } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 
@@ -51,5 +52,9 @@ export function DashboardLayoutWrapper({ children }: { children: React.ReactNode
     )
   }
 
-  return <DashboardLayout user={user}>{children}</DashboardLayout>
+  return (
+    <UserProvider user={user}>
+      <DashboardLayout user={user}>{children}</DashboardLayout>
+    </UserProvider>
+  )
 }

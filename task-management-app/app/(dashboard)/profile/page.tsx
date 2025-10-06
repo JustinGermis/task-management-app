@@ -1,12 +1,14 @@
-import { getUser } from '@/lib/auth-server'
+'use client'
+
+import { useUser } from '@/lib/contexts/user-context'
 import { ProfileForm } from '@/components/profile/profile-form'
 
-export default async function ProfilePage() {
-  const user = await getUser()
+export default function ProfilePage() {
+  const user = useUser()
 
   return (
     <div className="max-w-2xl mx-auto">
-      <ProfileForm user={user!} />
+      <ProfileForm user={user} />
     </div>
   )
 }
