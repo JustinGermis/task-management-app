@@ -403,7 +403,10 @@ export function TeamManagement() {
         </CardContent>
       </Card>
 
-      {/* Pending Invitations */}
+      </>
+      )}
+
+      {/* Pending Invitations - Available for all orgs */}
       {isAdmin && invitations.length > 0 && (
         <Card>
           <CardHeader>
@@ -427,15 +430,15 @@ export function TeamManagement() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <Badge variant="outline">{invite.role}</Badge>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="ghost"
                       onClick={() => handleResendInvite(invite.id)}
                     >
                       Resend
                     </Button>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="ghost"
                       onClick={() => handleCancelInvite(invite.id)}
                     >
@@ -447,8 +450,6 @@ export function TeamManagement() {
             </div>
           </CardContent>
         </Card>
-      )}
-      </>
       )}
     </div>
   )
