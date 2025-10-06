@@ -16,7 +16,7 @@ import {
   Loader2
 } from 'lucide-react'
 import Link from 'next/link'
-import { getDashboardStats, getRecentTasks, getRecentProjects, createSampleNotifications } from '@/lib/api/simple-api'
+import { getDashboardStats, getRecentTasks, getRecentProjects } from '@/lib/api/simple-api'
 import { formatRelativeTime } from '@/lib/utils'
 
 interface DashboardContentProps {
@@ -37,7 +37,6 @@ export function DashboardContent({ userName }: DashboardContentProps) {
   })
   const [recentTasks, setRecentTasks] = useState<any[]>([])
   const [recentProjects, setRecentProjects] = useState<any[]>([])
-  const [isCreatingNotifications, setIsCreatingNotifications] = useState(false)
 
   useEffect(() => {
     loadDashboardData()
@@ -89,36 +88,8 @@ export function DashboardContent({ userName }: DashboardContentProps) {
     )
   }
 
-  const handleCreateSampleNotifications = async () => {
-    setIsCreatingNotifications(true)
-    try {
-      await createSampleNotifications()
-      alert('Sample notifications created! Check the notifications bell.')
-    } catch (error) {
-      alert('Failed to create notifications. Check console for details.')
-    } finally {
-      setIsCreatingNotifications(false)
-    }
-  }
-
   return (
     <div className="space-y-6">
-      {/* Test Notifications Button - Remove this after testing */}
-      <div className="p-4 border rounded-lg bg-muted/50">
-        <p className="text-sm text-muted-foreground mb-2">Testing:</p>
-        <Button 
-          onClick={handleCreateSampleNotifications}
-          disabled={isCreatingNotifications}
-          variant="outline"
-          size="sm"
-        >
-          {isCreatingNotifications ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : null}
-          Create Sample Notifications
-        </Button>
-      </div>
-
       {/* Welcome Section */}
       <div>
         <h2 className="text-3xl font-bold tracking-tight">
