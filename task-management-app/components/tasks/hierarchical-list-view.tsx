@@ -408,25 +408,6 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
     }
   }, [selectedProjectId])
 
-  // Set up real-time task updates
-  const handleTaskChange = useCallback((type: 'INSERT' | 'UPDATE' | 'DELETE', task: any) => {
-    setTasks(prev => {
-      switch (type) {
-        case 'INSERT':
-          if (prev.some(t => t.id === task.id)) return prev
-          return [...prev, task]
-        case 'UPDATE':
-          return prev.map(t => t.id === task.id ? { ...t, ...task } : t)
-        case 'DELETE':
-          return prev.filter(t => t.id !== task.id)
-        default:
-          return prev
-      }
-    })
-  }, [])
-
-  useTaskUpdates(selectedProjectId || null, handleTaskChange)
-
   // Helper to update both state and cache
   const updateTasksAndCache = (updater: (prev: TaskWithDetails[]) => TaskWithDetails[]) => {
     setTasks(prev => {
@@ -439,6 +420,25 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
       return newTasks
     })
   }
+
+  // Set up real-time task updates - also update cache
+  const handleTaskChange = useCallback((type: 'INSERT' | 'UPDATE' | 'DELETE', task: any) => {
+    updateTasksAndCache(prev => {
+      switch (type) {
+        case 'INSERT':
+          if (prev.some(t => t.id === task.id)) return prev
+          return [...prev, task]
+        case 'UPDATE':
+          return prev.map(t => t.id === task.id ? { ...t, ...task } : t)
+        case 'DELETE':
+          return prev.filter(t => t.id !== task.id)
+        default:
+          return prev
+      }
+    })
+  }, [selectedProjectId, projectId, cache, updateTasksAndCache])
+
+  useTaskUpdates(selectedProjectId || null, handleTaskChange)
 
   const loadProjects = async () => {
     // Check cache first

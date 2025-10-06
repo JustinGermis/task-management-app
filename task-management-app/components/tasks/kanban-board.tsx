@@ -100,9 +100,9 @@ export function KanbanBoard() {
     })
   }
 
-  // Set up real-time task updates
+  // Set up real-time task updates - also update cache
   const handleTaskChange = useCallback((type: 'INSERT' | 'UPDATE' | 'DELETE', task: any) => {
-    setTasks(prev => {
+    updateTasksAndCache(prev => {
       switch (type) {
         case 'INSERT':
           // Don't add if task already exists (avoid duplicates)
@@ -116,7 +116,7 @@ export function KanbanBoard() {
           return prev
       }
     })
-  }, [])
+  }, [selectedProjectId, cache])
 
   useTaskUpdates(null, handleTaskChange)
 

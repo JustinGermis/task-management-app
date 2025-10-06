@@ -281,9 +281,19 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
     }
   }, [selectedProjectId])
 
-  // Set up real-time task updates
-  const handleTaskChange = useCallback((type: 'INSERT' | 'UPDATE' | 'DELETE', task: any) => {
+  // Helper to update both state and cache
+  const updateTasksAndCache = (updater: (prev: TaskWithDetails[]) => TaskWithDetails[]) => {
     setTasks(prev => {
+      const newTasks = updater(prev)
+      // Update cache with new state
+      cache.set(CACHE_KEYS.TASKS(selectedProjectId), newTasks)
+      return newTasks
+    })
+  }
+
+  // Set up real-time task updates - also update cache
+  const handleTaskChange = useCallback((type: 'INSERT' | 'UPDATE' | 'DELETE', task: any) => {
+    updateTasksAndCache(prev => {
       switch (type) {
         case 'INSERT':
           if (prev.some(t => t.id === task.id)) return prev
@@ -296,19 +306,9 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
           return prev
       }
     })
-  }, [])
+  }, [selectedProjectId, cache, updateTasksAndCache])
 
   useTaskUpdates(selectedProjectId || null, handleTaskChange)
-
-  // Helper to update both state and cache
-  const updateTasksAndCache = (updater: (prev: TaskWithDetails[]) => TaskWithDetails[]) => {
-    setTasks(prev => {
-      const newTasks = updater(prev)
-      // Update cache with new state
-      cache.set(CACHE_KEYS.TASKS(selectedProjectId), newTasks)
-      return newTasks
-    })
-  }
 
   const loadProjects = async () => {
     // Check cache first
