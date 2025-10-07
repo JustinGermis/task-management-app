@@ -1,23 +1,26 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckCircle2, Circle, Clock, AlertCircle, Folder, Plus, MoreVertical, Edit } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, AlertCircle, Folder, Plus, Edit2, GripVertical, Calendar } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  DndContext,
+  DragEndEvent,
+  closestCorners,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { getTasks, getCurrentUserProfile, updateTask } from '@/lib/api/simple-api'
 import { TaskDetailsEnhanced } from './task-details-enhanced'
 import { CreateTaskDialog } from './create-task-dialog'
 import { useDataCache } from '@/lib/contexts/data-cache-context'
-import { formatDate } from '@/lib/utils'
+import { formatDate, cn } from '@/lib/utils'
 
 interface TaskWithDetails {
   id: string
@@ -56,6 +59,89 @@ const statusConfig = {
   cancelled: { label: 'Cancelled', icon: Circle, color: 'bg-red-500' },
 }
 
+// Sortable Task Card Component
+function SortableTaskCard({ task, onClick }: { task: TaskWithDetails; onClick: () => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: task.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'critical': return 'border-l-red-500'
+      case 'high': return 'border-l-orange-500'
+      case 'medium': return 'border-l-yellow-500'
+      case 'low': return 'border-l-green-500'
+      default: return 'border-l-gray-500'
+    }
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "p-4 border rounded-lg hover:shadow-md transition-all bg-card border-l-4 group",
+        getPriorityColor(task.priority)
+      )}
+    >
+      <div className="flex gap-3">
+        {/* Drag Handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none mt-1 flex-shrink-0 p-1 rounded hover:bg-muted/50 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+
+        {/* Content - Clickable */}
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={onClick}>
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <h4 className="font-medium text-base flex-1 truncate">{task.title}</h4>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Badge variant="outline" className="text-xs">
+                {task.priority}
+              </Badge>
+              <Edit2 className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </div>
+
+          {task.description && (
+            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+              {task.description}
+            </p>
+          )}
+
+          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+            {task.project && (
+              <div className="flex items-center gap-1">
+                <Folder className="h-3 w-3" />
+                <span>{task.project.name}</span>
+              </div>
+            )}
+            {task.due_date && (
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                <span>{formatDate(task.due_date)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function MyTasksView() {
   const cache = useDataCache()
   const [tasks, setTasks] = useState<TaskWithDetails[]>([])
@@ -63,6 +149,16 @@ export function MyTasksView() {
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    })
+  )
 
   useEffect(() => {
     loadData()
@@ -203,27 +299,22 @@ export function MyTasksView() {
     setShowCreateDialog(false)
   }
 
-  const handleQuickStatusChange = async (task: TaskWithDetails, newStatus: string) => {
-    try {
-      const updated = await updateTask(task.id, { status: newStatus })
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
 
-      // Update task in list
-      updateTasksAndCache(prev => prev.map(t =>
-        t.id === task.id ? { ...t, status: newStatus } : t
-      ))
+    // For My Tasks, we're just reordering within the same status
+    // In a real implementation, you might update the position in the backend
+    setTasks(prev => {
+      const oldIndex = prev.findIndex(t => t.id === active.id)
+      const newIndex = prev.findIndex(t => t.id === over.id)
 
-      // Invalidate caches
-      if (task.project_id) {
-        cache.invalidate(`tasks:list:${task.project_id}`)
-        cache.invalidate(`tasks:kanban:${task.project_id}`)
-        cache.invalidate(`tasks:structure:${task.project_id}`)
-        cache.invalidate('tasks:list:all')
-        cache.invalidate('tasks:kanban:all')
-        cache.invalidate('tasks:structure:all')
-      }
-    } catch (error) {
-      console.error('Failed to update task status:', error)
-    }
+      const newTasks = [...prev]
+      const [movedTask] = newTasks.splice(oldIndex, 1)
+      newTasks.splice(newIndex, 0, movedTask)
+
+      return newTasks
+    })
   }
 
   const groupedTasks = statusOrder.reduce((acc, status) => {

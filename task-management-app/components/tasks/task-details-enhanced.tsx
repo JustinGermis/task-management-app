@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -352,54 +353,30 @@ export function TaskDetailsEnhanced({
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="sr-only">{title || 'Task Details'}</DialogTitle>
-          <div className="flex items-start justify-between">
-            <div className="flex-1 space-y-2">
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="text-lg font-semibold border-0 px-0 focus-visible:ring-0"
-                placeholder="Task title..."
-              />
-              
-              {/* Project Selector */}
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger className="w-fit border-0 h-auto p-0 focus:ring-0">
-                  <div className="flex items-center space-x-2">
-                    <Folder className="h-3 w-3 text-muted-foreground" />
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {availableProjects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={handleClone}
-              disabled={isCloning}
-              title="Clone task"
-            >
-              {isCloning ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-            </Button>
-            <Button 
-              size="sm" 
-              variant="destructive" 
-              onClick={handleDelete}
-              disabled={isLoading}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+          <div className="space-y-2">
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-lg font-semibold border-0 px-0 focus-visible:ring-0"
+              placeholder="Task title..."
+            />
+
+            {/* Project Selector */}
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger className="w-fit border-0 h-auto p-0 focus:ring-0">
+                <div className="flex items-center space-x-2">
+                  <Folder className="h-3 w-3 text-muted-foreground" />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {availableProjects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </DialogHeader>
 
@@ -657,14 +634,6 @@ export function TaskDetailsEnhanced({
             />
           </div>
 
-          {/* Save Button */}
-          {hasChanges && (
-            <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={isLoading}>
-                Save Changes
-              </Button>
-            </div>
-          )}
 
           {/* Comments */}
           <div className="space-y-4 border-t pt-4">
@@ -741,6 +710,46 @@ export function TaskDetailsEnhanced({
             </div>
           </div>
         </div>
+
+        <DialogFooter className="flex justify-between items-center">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleClone}
+              disabled={isCloning}
+            >
+              {isCloning ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  Cloning...
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Clone Task
+                </>
+              )}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isLoading}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+          </div>
+          <Button onClick={handleSave} disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
