@@ -29,7 +29,7 @@ const CACHE_KEYS = {
 const DROPDOWN_KEY = 'tasks:selectedProjectId'
 
 export function GanttView({ projectId: propProjectId }: GanttViewProps) {
-  const { cache } = useDataCache()
+  const cache = useDataCache()
   const [tasks, setTasks] = useState<TaskWithDetails[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null)
