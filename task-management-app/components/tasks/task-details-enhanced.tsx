@@ -20,12 +20,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { Calendar as CalendarPicker } from '@/components/ui/calendar'
 import { TaskWithDetails } from '@/lib/types'
 import { TASK_STATUSES, TASK_PRIORITIES, DEFAULT_LABELS, TASK_COLORS } from '@/lib/constants'
@@ -501,42 +495,30 @@ export function TaskDetailsEnhanced({
               <span>Assignees</span>
             </label>
             <div className="flex flex-wrap items-center gap-2">
-              <TooltipProvider>
-                {assignees.map((assignee) => {
-                  const profile = assignee.profiles
-                  if (!profile) return null
+              {assignees.map((assignee) => {
+                const profile = assignee.profiles
+                if (!profile) return null
 
-                  return (
-                    <Tooltip key={assignee.user_id}>
-                      <TooltipTrigger asChild>
-                        <Badge variant="secondary" className="pr-1">
-                          <Avatar className="h-5 w-5 mr-1">
-                            <AvatarImage src={profile.avatar_url || undefined} />
-                            <AvatarFallback className="text-xs">
-                              {profile.full_name?.charAt(0) || profile.email.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          {profile.full_name || profile.email}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-4 w-4 p-0 ml-1 hover:bg-transparent"
-                            onClick={() => handleRemoveAssignee(assignee.user_id)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="text-xs">
-                          <div className="font-medium">{profile.full_name || profile.email}</div>
-                          {profile.full_name && <div className="text-muted-foreground">{profile.email}</div>}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  )
-                })}
-              </TooltipProvider>
+                return (
+                  <Badge key={assignee.user_id} variant="secondary" className="pr-1" title={profile.email}>
+                    <Avatar className="h-5 w-5 mr-1">
+                      <AvatarImage src={profile.avatar_url || undefined} />
+                      <AvatarFallback className="text-xs">
+                        {profile.full_name?.charAt(0) || profile.email.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {profile.full_name || profile.email}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-4 w-4 p-0 ml-1 hover:bg-transparent"
+                      onClick={() => handleRemoveAssignee(assignee.user_id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )
+              })}
               
               <Popover open={isAssigneePopoverOpen} onOpenChange={setIsAssigneePopoverOpen}>
                 <PopoverTrigger asChild>
