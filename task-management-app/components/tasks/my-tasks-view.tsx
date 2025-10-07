@@ -1,11 +1,19 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckCircle2, Circle, Clock, AlertCircle, Folder, Plus } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, AlertCircle, Folder, Plus, MoreVertical, Edit } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getTasks, getCurrentUserProfile } from '@/lib/api/simple-api'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { getTasks, getCurrentUserProfile, updateTask } from '@/lib/api/simple-api'
 import { TaskDetailsEnhanced } from './task-details-enhanced'
 import { CreateTaskDialog } from './create-task-dialog'
 import { useDataCache } from '@/lib/contexts/data-cache-context'
@@ -195,6 +203,29 @@ export function MyTasksView() {
     setShowCreateDialog(false)
   }
 
+  const handleQuickStatusChange = async (task: TaskWithDetails, newStatus: string) => {
+    try {
+      const updated = await updateTask(task.id, { status: newStatus })
+
+      // Update task in list
+      updateTasksAndCache(prev => prev.map(t =>
+        t.id === task.id ? { ...t, status: newStatus } : t
+      ))
+
+      // Invalidate caches
+      if (task.project_id) {
+        cache.invalidate(`tasks:list:${task.project_id}`)
+        cache.invalidate(`tasks:kanban:${task.project_id}`)
+        cache.invalidate(`tasks:structure:${task.project_id}`)
+        cache.invalidate('tasks:list:all')
+        cache.invalidate('tasks:kanban:all')
+        cache.invalidate('tasks:structure:all')
+      }
+    } catch (error) {
+      console.error('Failed to update task status:', error)
+    }
+  }
+
   const groupedTasks = statusOrder.reduce((acc, status) => {
     acc[status] = tasks.filter(t => t.status === status)
     return acc
@@ -283,31 +314,82 @@ export function MyTasksView() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {statusTasks.map(task => (
                   <div
                     key={task.id}
-                    onClick={() => setSelectedTask(task)}
-                    className="p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
+                    className="p-4 border rounded-lg hover:shadow-md transition-all bg-card"
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Icon className="h-4 w-4 flex-shrink-0" />
-                          <h4 className="font-medium truncate">{task.title}</h4>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                            <h4
+                              className="font-medium text-base cursor-pointer hover:text-primary truncate"
+                              onClick={() => setSelectedTask(task)}
+                            >
+                              {task.title}
+                            </h4>
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Badge
+                              variant="outline"
+                              className={`${getPriorityColor(task.priority)} text-xs`}
+                            >
+                              {task.priority}
+                            </Badge>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setSelectedTask(task)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit Details
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                                {statusOrder.filter(s => s !== task.status).map(newStatus => {
+                                  const newConfig = statusConfig[newStatus as keyof typeof statusConfig]
+                                  const NewIcon = newConfig.icon
+                                  return (
+                                    <DropdownMenuItem
+                                      key={newStatus}
+                                      onClick={() => handleQuickStatusChange(task, newStatus)}
+                                    >
+                                      <NewIcon className="mr-2 h-4 w-4" />
+                                      {newConfig.label}
+                                    </DropdownMenuItem>
+                                  )
+                                })}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
 
                         {task.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-3 ml-6">
                             {task.description}
                           </p>
                         )}
 
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap ml-6">
                           {task.project && (
                             <div className="flex items-center gap-1">
                               <Folder className="h-3 w-3" />
-                              <span>{task.project.name}</span>
+                              <span className="truncate max-w-[150px]">{task.project.name}</span>
                             </div>
                           )}
 
@@ -319,13 +401,6 @@ export function MyTasksView() {
                           )}
                         </div>
                       </div>
-
-                      <Badge
-                        variant="outline"
-                        className={getPriorityColor(task.priority)}
-                      >
-                        {task.priority}
-                      </Badge>
                     </div>
                   </div>
                 ))}

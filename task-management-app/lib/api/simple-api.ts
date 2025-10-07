@@ -828,12 +828,22 @@ export async function getTaskLabels(taskId: string) {
 
 export async function getProjectLabels(projectId: string) {
   const supabase = createClient()
-  
+
   try {
+    // First get the project to find its organization
+    const { data: project } = await supabase
+      .from('projects')
+      .select('organization_id')
+      .eq('id', projectId)
+      .single()
+
+    if (!project?.organization_id) return []
+
+    // Then get labels for that organization
     const { data: labels } = await supabase
       .from('labels')
       .select('*')
-      .eq('project_id', projectId)
+      .eq('organization_id', project.organization_id)
       .order('name')
 
     return labels || []
@@ -846,17 +856,25 @@ export async function getProjectLabels(projectId: string) {
 export async function createLabel(projectId: string, name: string, color: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   if (!user) throw new Error('Not authenticated')
 
   try {
+    // First get the project to find its organization
+    const { data: project } = await supabase
+      .from('projects')
+      .select('organization_id')
+      .eq('id', projectId)
+      .single()
+
+    if (!project?.organization_id) throw new Error('Project not found')
+
     const { data: label, error } = await supabase
       .from('labels')
       .insert({
-        project_id: projectId,
+        organization_id: project.organization_id,
         name,
         color,
-        created_by: user.id,
       })
       .select()
       .single()
