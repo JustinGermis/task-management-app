@@ -84,6 +84,23 @@ export function KanbanBoard() {
     loadTasks()
   }, [])
 
+  // Listen for cache updates from other views
+  useEffect(() => {
+    const handleCacheUpdate = (event: CustomEvent) => {
+      const { key } = event.detail
+      // If tasks cache for our project was updated, reload from cache
+      if (key === CACHE_KEYS.TASKS(selectedProjectId)) {
+        const cached = cache.get(key)
+        if (cached) {
+          setTasks(cached)
+        }
+      }
+    }
+
+    window.addEventListener('cache-updated', handleCacheUpdate as EventListener)
+    return () => window.removeEventListener('cache-updated', handleCacheUpdate as EventListener)
+  }, [selectedProjectId, cache])
+
   useEffect(() => {
     loadTasks()
     // Save selection to localStorage

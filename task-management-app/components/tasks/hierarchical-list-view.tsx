@@ -400,6 +400,24 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
     loadTasks()
   }, [projectId])
 
+  // Listen for cache updates from other views
+  useEffect(() => {
+    const handleCacheUpdate = (event: CustomEvent) => {
+      const { key } = event.detail
+      const effectiveProjectId = projectId || selectedProjectId
+      // If tasks cache for our project was updated, reload from cache
+      if (effectiveProjectId && key === CACHE_KEYS.TASKS(effectiveProjectId)) {
+        const cached = cache.get(key)
+        if (cached) {
+          setTasks(cached)
+        }
+      }
+    }
+
+    window.addEventListener('cache-updated', handleCacheUpdate as EventListener)
+    return () => window.removeEventListener('cache-updated', handleCacheUpdate as EventListener)
+  }, [selectedProjectId, projectId, cache])
+
   useEffect(() => {
     loadTasks()
     // Save selection to localStorage (only if not passed as prop)

@@ -31,6 +31,10 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
     setCache(prev => {
       const newCache = new Map(prev)
       newCache.set(key, { data, timestamp: Date.now() })
+
+      // Dispatch custom event to notify all components that cache has updated
+      window.dispatchEvent(new CustomEvent('cache-updated', { detail: { key } }))
+
       return newCache
     })
   }, [])
