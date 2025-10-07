@@ -60,14 +60,63 @@ export default function SignupPage() {
       return
     }
 
-    const { data, error } = await signUp(email, password, fullName, inviteCode || undefined)
+    // If there's an invitation code, use the Edge Function for auto-confirmed signup
+    if (inviteCode) {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const supabase = createClient()
 
-    if (error) {
-      setError(error.message)
-      setIsLoading(false)
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/invitation-signup`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              email,
+              password,
+              fullName,
+              inviteCode
+            })
+          }
+        )
+
+        const result = await response.json()
+
+        if (!response.ok || result.error) {
+          setError(result.error || 'Failed to create account')
+          setIsLoading(false)
+          return
+        }
+
+        // Set the session
+        if (result.session) {
+          await supabase.auth.setSession({
+            access_token: result.session.access_token,
+            refresh_token: result.session.refresh_token
+          })
+        }
+
+        // Redirect to dashboard immediately (no email verification needed)
+        router.push('/dashboard')
+      } catch (err: any) {
+        console.error('Invitation signup error:', err)
+        setError(err.message || 'Failed to create account')
+        setIsLoading(false)
+      }
     } else {
-      setSuccess(true)
-      setIsLoading(false)
+      // Regular signup (requires email verification)
+      const { data, error } = await signUp(email, password, fullName, inviteCode || undefined)
+
+      if (error) {
+        setError(error.message)
+        setIsLoading(false)
+      } else {
+        setSuccess(true)
+        setIsLoading(false)
+      }
     }
   }
 
