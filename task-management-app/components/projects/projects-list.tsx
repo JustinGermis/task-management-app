@@ -29,11 +29,17 @@ const CACHE_KEYS = {
   PROJECTS: (orgId: string) => `projects:list:${orgId}`,
 }
 
+const DROPDOWN_KEY = 'global:selectedOrganizationId' // Shared across all pages
+
 export function ProjectsList({ organizationId: initialOrgId }: { organizationId?: string }) {
   const cache = useDataCache()
   const [projects, setProjects] = useState<any[]>([])
   const [organizations, setOrganizations] = useState<any[]>([])
-  const [selectedOrgId, setSelectedOrgId] = useState<string>('all')
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(() => {
+    if (initialOrgId) return initialOrgId
+    const saved = localStorage.getItem(DROPDOWN_KEY)
+    return saved || 'all'
+  })
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -48,7 +54,11 @@ export function ProjectsList({ organizationId: initialOrgId }: { organizationId?
 
   useEffect(() => {
     loadProjects()
-  }, [selectedOrgId])
+    // Save selection to localStorage (only if not passed as prop)
+    if (!initialOrgId) {
+      localStorage.setItem(DROPDOWN_KEY, selectedOrgId)
+    }
+  }, [selectedOrgId, initialOrgId])
 
   const loadOrganizations = async () => {
     // Check cache first

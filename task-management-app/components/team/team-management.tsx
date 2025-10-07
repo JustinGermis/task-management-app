@@ -58,12 +58,17 @@ const CACHE_KEYS = {
   INVITATIONS: (orgId: string) => `team:invitations:${orgId}`,
 }
 
+const DROPDOWN_KEY = 'global:selectedOrganizationId' // Shared across all pages
+
 export function TeamManagement() {
   const cache = useDataCache()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [invitations, setInvitations] = useState<any[]>([])
   const [organizations, setOrganizations] = useState<any[]>([])
-  const [selectedOrgId, setSelectedOrgId] = useState<string>('')
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(() => {
+    const saved = localStorage.getItem(DROPDOWN_KEY)
+    return saved || ''
+  })
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -77,6 +82,8 @@ export function TeamManagement() {
     if (selectedOrgId) {
       loadMembers()
       loadInvitations()
+      // Save selection to localStorage
+      localStorage.setItem(DROPDOWN_KEY, selectedOrgId)
     }
   }, [selectedOrgId])
 
@@ -89,7 +96,8 @@ export function TeamManagement() {
         cachedOrgs && !cache.isStale(CACHE_KEYS.ORGANIZATIONS)) {
       setCurrentUser(cachedProfile)
       setOrganizations(cachedOrgs)
-      if (cachedOrgs.length > 0) {
+      if (cachedOrgs.length > 0 && !selectedOrgId) {
+        // Only set if there's no saved selection
         setSelectedOrgId(cachedOrgs[0].id)
       }
       setIsLoading(false)
@@ -107,7 +115,8 @@ export function TeamManagement() {
       cache.set(CACHE_KEYS.PROFILE, profile)
       cache.set(CACHE_KEYS.ORGANIZATIONS, orgs)
 
-      if (orgs.length > 0) {
+      if (orgs.length > 0 && !selectedOrgId) {
+        // Only set default if there's no saved selection
         setSelectedOrgId(orgs[0].id)
       }
     } catch (error) {
