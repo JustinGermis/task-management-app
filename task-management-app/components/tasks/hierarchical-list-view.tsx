@@ -20,24 +20,17 @@ import {
   sortableKeyboardCoordinates 
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Search, ChevronDown, ChevronRight, MoreVertical, Calendar, User, Flag, FolderPlus, FileText, Trash2 } from 'lucide-react'
+import { Plus, Search, ChevronDown, ChevronRight, Edit2, GripVertical, Calendar, User, Flag, FolderPlus, FileText, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { CreateTaskDialog } from './create-task-dialog'
 import { CreateSectionDialog } from './create-section-dialog'
 import { TaskDetailsEnhanced } from './task-details-enhanced'
 import { OnlineStatus } from '@/components/shared/online-status'
-import { getTasks, updateTask, getProjects, createTask } from '@/lib/api/simple-api'
+import { getTasks, updateTask, getProjects, createTask, getCurrentUserProfile } from '@/lib/api/simple-api'
 import { useTaskUpdates } from '@/lib/hooks/use-realtime'
 import { TaskWithDetails, Project } from '@/lib/types'
 import { TASK_PRIORITIES } from '@/lib/constants'
@@ -64,23 +57,17 @@ interface TaskTreeNode extends TaskWithDetails {
 interface DraggableTaskRowProps {
   node: TaskTreeNode
   onTaskClick: (task: TaskWithDetails) => void
-  onCreateSubtask: (parentId: string) => void
-  onCreateSubsection: (parentId: string) => void
-  onTaskDelete: (taskId: string) => void
   onToggleExpansion: (taskId: string) => void
   isExpanded: boolean
   children?: React.ReactNode
 }
 
-function DraggableTaskRow({ 
-  node, 
-  onTaskClick, 
-  onCreateSubtask, 
-  onCreateSubsection, 
-  onTaskDelete, 
+function DraggableTaskRow({
+  node,
+  onTaskClick,
   onToggleExpansion,
   isExpanded,
-  children 
+  children
 }: DraggableTaskRowProps) {
   const {
     attributes,
@@ -173,21 +160,34 @@ function DraggableTaskRow({
       >
         {/* Visual connector lines for hierarchy */}
         {node.level > 0 && (
-          <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700" 
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700"
                style={{ left: `${12 + (node.level - 1) * 32}px` }} />
         )}
-        
-        <div 
-          className={`flex items-center gap-3 py-4 px-4 relative z-10`}
+
+        <div
+          className={`flex items-center gap-2 py-4 px-4 relative z-10`}
           style={{ paddingLeft: `${16 + indentLevel}px` }}
-          {...attributes}
-          {...listeners}
         >
+          {/* Drag Handle */}
+          {!isSection(node) && (
+            <div
+              {...attributes}
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing touch-none flex-shrink-0 p-1 rounded hover:bg-muted/50 transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </div>
+          )}
+
           {/* Expand/Collapse Button */}
           <button
-            onClick={() => onToggleExpansion(node.id)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleExpansion(node.id)
+            }}
             className={`
-              p-2 rounded-full transition-all duration-200 
+              p-2 rounded-full transition-all duration-200 flex-shrink-0
               ${hasChildren ? 'visible opacity-100' : 'invisible opacity-0'}
               ${hasChildren ? 'hover:bg-white/60 dark:hover:bg-slate-700/60 hover:shadow-md' : ''}
               ${isExpanded ? 'bg-white/80 dark:bg-slate-700/80 shadow-sm' : ''}
@@ -201,8 +201,8 @@ function DraggableTaskRow({
 
           {/* Enhanced Icon with level-appropriate styling */}
           <div className={`shrink-0 p-2 rounded-lg ${
-            isSection(node) 
-              ? 'bg-white/60 dark:bg-slate-700/60 shadow-sm' 
+            isSection(node)
+              ? 'bg-white/60 dark:bg-slate-700/60 shadow-sm'
               : 'bg-slate-100/60 dark:bg-slate-800/60'
           }`}>
             {isSection(node) ? (
@@ -216,132 +216,93 @@ function DraggableTaskRow({
             )}
           </div>
 
-          {/* Task Content with enhanced typography */}
-          <div className="flex-1 min-w-0 flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <button
-                onClick={() => onTaskClick(node)}
-                className={`
-                  text-left font-medium hover:underline truncate block w-full transition-colors
+          {/* Task Content - Clickable */}
+          <div
+            className="flex-1 min-w-0 cursor-pointer"
+            onClick={() => onTaskClick(node)}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className={`
+                  font-medium truncate transition-colors
                   ${levelStyle.text}
                   ${isSection(node) ? (node.level === 0 ? 'text-lg' : 'text-base') : 'text-sm'}
-                `}
-              >
-                {isSection(node) ? getSectionDisplayName(node) : node.title}
-              </button>
-              
-              {node.description && (
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-1 italic">
-                  {node.description}
-                </p>
-              )}
-
-              {/* Enhanced task metadata */}
-              {!isSection(node) && (
-                <div className="flex items-center gap-3 mt-3">
-                  <Badge className={`text-xs font-medium ${getStatusColor(node.status || 'todo')} border-0`}>
-                    {node.status || 'todo'}
-                  </Badge>
-                  
-                  <Badge 
-                    variant="outline" 
-                    className={`${getPriorityColor(node.priority || 'medium')} border-current text-xs font-medium`}
-                  >
-                    <Flag className="w-3 h-3 mr-1" />
-                    {node.priority}
-                  </Badge>
-
-                  {node.due_date && (
-                    <div className="flex items-center text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 px-2 py-1 rounded-full">
-                      <Calendar className="w-3 h-3 mr-1" />
-                      <span className="font-medium">{formatDate(node.due_date)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Assignees */}
-                  {node.assignees && node.assignees.length > 0 && (
-                    <div className="flex items-center -space-x-1">
-                      {node.assignees.slice(0, 3).map((assignee: any) => {
-                        const isAutoAssigned = node.metadata?.autoAssigned && 
-                                             node.metadata?.assignedEmail === assignee.profiles?.email
-                        const initials = assignee.profiles?.full_name
-                          ? assignee.profiles.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
-                          : assignee.profiles?.email?.slice(0, 2).toUpperCase() || 'U'
-                        
-                        return (
-                          <div key={assignee.id} className="relative">
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border-2 border-background ${
-                              isAutoAssigned ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-500' : 'bg-muted text-muted-foreground'
-                            }`}>
-                              {initials}
-                            </div>
-                            {isAutoAssigned && (
-                              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full border border-background" />
-                            )}
-                          </div>
-                        )
-                      })}
-                      {node.assignees.length > 3 && (
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-muted text-muted-foreground border-2 border-background">
-                          +{node.assignees.length - 3}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                `}>
+                  {isSection(node) ? getSectionDisplayName(node) : node.title}
                 </div>
-              )}
-              
-              {/* Show children count for collapsed sections */}
-              {isSection(node) && hasChildren && !isExpanded && (
-                <Badge variant="secondary" className="mt-2 text-xs">
-                  {node.children.length} {node.children.length === 1 ? 'item' : 'items'}
-                </Badge>
-              )}
-            </div>
 
-            {/* Enhanced Actions Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/80 dark:hover:bg-slate-700/80"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => onTaskClick(node)}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  View Details
-                </DropdownMenuItem>
-                {isSection(node) ? (
-                  <>
-                    <DropdownMenuItem onClick={() => onCreateSubsection(node.id)}>
-                      <FolderPlus className="mr-2 h-4 w-4" />
-                      Add Subsection
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onCreateSubtask(node.id)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Task
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <DropdownMenuItem onClick={() => onCreateSubtask(node.id)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Subtask
-                  </DropdownMenuItem>
+                {node.description && (
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-1 italic">
+                    {node.description}
+                  </p>
                 )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => onTaskDelete(node.id)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+
+                {/* Enhanced task metadata */}
+                {!isSection(node) && (
+                  <div className="flex items-center gap-3 mt-3 flex-wrap">
+                    <Badge className={`text-xs font-medium ${getStatusColor(node.status || 'todo')} border-0`}>
+                      {node.status || 'todo'}
+                    </Badge>
+
+                    <Badge
+                      variant="outline"
+                      className={`${getPriorityColor(node.priority || 'medium')} border-current text-xs font-medium`}
+                    >
+                      <Flag className="w-3 h-3 mr-1" />
+                      {node.priority}
+                    </Badge>
+
+                    {node.due_date && (
+                      <div className="flex items-center text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 px-2 py-1 rounded-full">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        <span className="font-medium">{formatDate(node.due_date)}</span>
+                      </div>
+                    )}
+
+                    {/* Assignees */}
+                    {node.assignees && node.assignees.length > 0 && (
+                      <div className="flex items-center -space-x-1">
+                        {node.assignees.slice(0, 3).map((assignee: any) => {
+                          const isAutoAssigned = node.metadata?.autoAssigned &&
+                                               node.metadata?.assignedEmail === assignee.profiles?.email
+                          const initials = assignee.profiles?.full_name
+                            ? assignee.profiles.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+                            : assignee.profiles?.email?.slice(0, 2).toUpperCase() || 'U'
+
+                          return (
+                            <div key={assignee.id} className="relative">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border-2 border-background ${
+                                isAutoAssigned ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-500' : 'bg-muted text-muted-foreground'
+                              }`}>
+                                {initials}
+                              </div>
+                              {isAutoAssigned && (
+                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full border border-background" />
+                              )}
+                            </div>
+                          )
+                        })}
+                        {node.assignees.length > 3 && (
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-muted text-muted-foreground border-2 border-background">
+                            +{node.assignees.length - 3}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Show children count for collapsed sections */}
+                {isSection(node) && hasChildren && !isExpanded && (
+                  <Badge variant="secondary" className="mt-2 text-xs">
+                    {node.children.length} {node.children.length === 1 ? 'item' : 'items'}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Edit icon - visible on hover */}
+              <Edit2 className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+            </div>
           </div>
         </div>
       </div>
@@ -374,6 +335,8 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
   const [createParentId, setCreateParentId] = useState<string | undefined>()
   const [createSectionParentId, setCreateSectionParentId] = useState<string | undefined>()
   const [activeTask, setActiveTask] = useState<TaskWithDetails | null>(null)
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('all')
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   // Configure sensors for drag detection
   const sensors = useSensors(
@@ -394,6 +357,7 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
   )
 
   useEffect(() => {
+    loadCurrentUser()
     if (!projectId) {
       loadProjects()
     }
@@ -478,6 +442,31 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
   }, [selectedProjectId, projectId, cache, updateTasksAndCache])
 
   useTaskUpdates(selectedProjectId || null, handleTaskChange)
+
+  const loadCurrentUser = async () => {
+    try {
+      const profile = await getCurrentUserProfile()
+      setCurrentUser(profile)
+    } catch (error) {
+      console.error('Failed to load current user:', error)
+    }
+  }
+
+  // Get unique assignees from all tasks
+  const uniqueAssignees = Array.from(
+    new Map(
+      tasks.flatMap(task =>
+        (task.assignees || []).map(a => [
+          a.user_id,
+          {
+            id: a.user_id,
+            name: a.profile?.full_name || a.profile?.email || 'Unknown',
+            email: a.profile?.email || ''
+          }
+        ])
+      )
+    ).values()
+  )
 
   const loadProjects = async () => {
     // Check cache first
@@ -710,11 +699,34 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
     return rootTasks
   }
 
-  // Filter tasks by search query
-  const filteredTasks = tasks.filter(task => 
-    task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Filter tasks by assignee and search query
+  let filteredTasks = tasks
+
+  // Filter by assignee
+  if (selectedAssigneeId === 'me' && currentUser) {
+    filteredTasks = filteredTasks.filter(task =>
+      task.assignees?.some(a => a.user_id === currentUser.id)
+    )
+  } else if (selectedAssigneeId !== 'all') {
+    filteredTasks = filteredTasks.filter(task =>
+      task.assignees?.some(a => a.user_id === selectedAssigneeId)
+    )
+  }
+
+  // Enhanced search: search in task title, description, project name, and assignee names
+  if (searchQuery) {
+    const query = searchQuery.toLowerCase()
+    filteredTasks = filteredTasks.filter(task => {
+      const titleMatch = task.title.toLowerCase().includes(query)
+      const descMatch = task.description?.toLowerCase().includes(query)
+      const projectMatch = task.project?.name.toLowerCase().includes(query)
+      const assigneeMatch = task.assignees?.some(a =>
+        a.profile?.full_name?.toLowerCase().includes(query) ||
+        a.profile?.email?.toLowerCase().includes(query)
+      )
+      return titleMatch || descMatch || projectMatch || assigneeMatch
+    })
+  }
 
   const taskTree = buildTaskTree(filteredTasks)
 
@@ -738,9 +750,6 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
           })
           setSelectedTask(task)
         }}
-        onCreateSubtask={handleCreateSubtask}
-        onCreateSubsection={handleCreateSubsection}
-        onTaskDelete={handleTaskDeleted}
         onToggleExpansion={toggleTaskExpansion}
         isExpanded={isExpanded}
       >
@@ -806,7 +815,7 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
         <div className="relative w-full sm:flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search tasks..."
+            placeholder="Search tasks, projects, or people..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -814,7 +823,7 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
         </div>
         {!projectId && (
           <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-            <SelectTrigger className="w-full sm:w-64">
+            <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Select project" />
             </SelectTrigger>
             <SelectContent>
@@ -826,6 +835,37 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
             </SelectContent>
           </Select>
         )}
+        <Select value={selectedAssigneeId} onValueChange={setSelectedAssigneeId}>
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder="All assignees" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                All assignees
+              </div>
+            </SelectItem>
+            {currentUser && (
+              <SelectItem value="me">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Assigned to me
+                </div>
+              </SelectItem>
+            )}
+            {uniqueAssignees.map((assignee) => (
+              <SelectItem key={assignee.id} value={assignee.id}>
+                <div className="flex flex-col items-start">
+                  <span>{assignee.name}</span>
+                  {assignee.email && assignee.name !== assignee.email && (
+                    <span className="text-xs text-muted-foreground">{assignee.email}</span>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="flex items-center space-x-2">
           <span className="text-sm text-muted-foreground hidden sm:inline">Total:</span>
           <Badge variant="secondary">{filteredTasks.length} tasks</Badge>

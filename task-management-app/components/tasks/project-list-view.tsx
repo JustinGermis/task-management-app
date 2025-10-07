@@ -22,7 +22,7 @@ import {
   sortableKeyboardCoordinates 
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Search, ChevronDown, ChevronRight, Calendar, User, Flag, Edit2, MoreVertical } from 'lucide-react'
+import { Plus, Search, ChevronDown, ChevronRight, Calendar, User, Flag, Edit2, GripVertical, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -31,7 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CreateTaskDialog } from './create-task-dialog'
 import { TaskDetailsEnhanced } from './task-details-enhanced'
 import { OnlineStatus } from '@/components/shared/online-status'
-import { getTasks, updateTask, getProjects } from '@/lib/api/simple-api'
+import { getTasks, updateTask, getProjects, getCurrentUserProfile } from '@/lib/api/simple-api'
 import { useTaskUpdates } from '@/lib/hooks/use-realtime'
 import { TaskWithDetails, Project } from '@/lib/types'
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/constants'
@@ -76,57 +76,79 @@ function DraggableTaskItem({ task, onTaskClick }: DraggableTaskItemProps) {
     return priorityConfig?.color || 'text-gray-500'
   }
 
+  const getPriorityBorderColor = (priority: string) => {
+    switch (priority) {
+      case 'critical': return 'border-l-red-500'
+      case 'high': return 'border-l-orange-500'
+      case 'medium': return 'border-l-yellow-500'
+      case 'low': return 'border-l-green-500'
+      default: return 'border-l-gray-500'
+    }
+  }
+
   return (
-    <div 
+    <div
       ref={setNodeRef}
       style={style}
-      className={`group relative p-4 hover:bg-muted/50 transition-all border-l-4 border-l-transparent hover:border-l-primary/20 cursor-grab active:cursor-grabbing ${
+      className={`group relative border-l-4 ${getPriorityBorderColor(task.priority || 'medium')} ${
         isDragging ? 'bg-muted shadow-lg ring-2 ring-primary/20 z-50' : ''
       }`}
-      {...attributes}
-      {...listeners}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center space-x-2 mb-2">
-            <span className="font-medium truncate">
-              {task.title}
-            </span>
-            <Badge 
-              variant="outline" 
-              className={`${getPriorityColor(task.priority || 'medium')} border-current text-xs`}
-            >
-              <Flag className="w-3 h-3 mr-1" />
-              {task.priority}
-            </Badge>
+      <div className="flex gap-3 p-4 hover:bg-muted/50 transition-all">
+        {/* Drag Handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none mt-1 flex-shrink-0 p-1 rounded hover:bg-muted/50 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+
+        {/* Content - Clickable */}
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onTaskClick(task)}>
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="flex items-center space-x-2 flex-1 min-w-0">
+              <span className="font-medium truncate">
+                {task.title}
+              </span>
+              <Badge
+                variant="outline"
+                className={`${getPriorityColor(task.priority || 'medium')} border-current text-xs flex-shrink-0`}
+              >
+                <Flag className="w-3 h-3 mr-1" />
+                {task.priority}
+              </Badge>
+            </div>
+            <Edit2 className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
           </div>
-          
+
           {task.description && (
             <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
               {task.description}
             </p>
           )}
-          
-          <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+
+          <div className="flex items-center space-x-4 text-xs text-muted-foreground flex-wrap">
             {task.due_date && (
               <div className="flex items-center space-x-1">
                 <Calendar className="w-3 h-3" />
                 <span>Due {formatDate(task.due_date || '')}</span>
               </div>
             )}
-            
+
             {/* Assignees */}
             {task.assignees && task.assignees.length > 0 && (
               <div className="flex items-center space-x-1">
                 <span>Assigned to:</span>
                 <div className="flex items-center -space-x-1">
                   {task.assignees.slice(0, 2).map((assignee: any) => {
-                    const isAutoAssigned = task.metadata?.autoAssigned && 
+                    const isAutoAssigned = task.metadata?.autoAssigned &&
                                          task.metadata?.assignedEmail === assignee.profiles?.email
                     const initials = assignee.profiles?.full_name
                       ? assignee.profiles.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
                       : assignee.profiles?.email?.slice(0, 2).toUpperCase() || 'U'
-                    
+
                     return (
                       <div key={assignee.id} className="relative">
                         <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium border border-background ${
@@ -148,23 +170,10 @@ function DraggableTaskItem({ task, onTaskClick }: DraggableTaskItemProps) {
                 </div>
               </div>
             )}
-            
+
             <span>Created {formatDate(task.created_at || '')}</span>
           </div>
         </div>
-        
-        {/* Edit button - visible on hover */}
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e) => {
-            e.stopPropagation()
-            onTaskClick(task)
-          }}
-        >
-          <Edit2 className="h-4 w-4" />
-        </Button>
       </div>
     </div>
   )
@@ -247,6 +256,8 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
   const [activeTask, setActiveTask] = useState<TaskWithDetails | null>(null)
   const [createTaskStatus, setCreateTaskStatus] = useState<string | undefined>()
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('all')
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   // Configure sensors for drag detection
   const sensors = useSensors(
@@ -267,6 +278,7 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
   )
 
   useEffect(() => {
+    loadCurrentUser()
     if (!projectId) {
       loadProjects()
     }
@@ -350,6 +362,31 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
   }, [selectedProjectId, cache, updateTasksAndCache])
 
   useTaskUpdates(selectedProjectId || null, handleTaskChange)
+
+  const loadCurrentUser = async () => {
+    try {
+      const profile = await getCurrentUserProfile()
+      setCurrentUser(profile)
+    } catch (error) {
+      console.error('Failed to load current user:', error)
+    }
+  }
+
+  // Get unique assignees from all tasks
+  const uniqueAssignees = Array.from(
+    new Map(
+      tasks.flatMap(task =>
+        (task.assignees || []).map(a => [
+          a.user_id,
+          {
+            id: a.user_id,
+            name: a.profile?.full_name || a.profile?.email || 'Unknown',
+            email: a.profile?.email || ''
+          }
+        ])
+      )
+    ).values()
+  )
 
   const loadProjects = async () => {
     // Check cache first
@@ -546,11 +583,34 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
     return priorityConfig?.color || 'text-gray-500'
   }
 
-  // Filter tasks by search query
-  const filteredTasks = tasks.filter(task => 
-    task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Filter tasks by assignee and search query
+  let filteredTasks = tasks
+
+  // Filter by assignee
+  if (selectedAssigneeId === 'me' && currentUser) {
+    filteredTasks = filteredTasks.filter(task =>
+      task.assignees?.some(a => a.user_id === currentUser.id)
+    )
+  } else if (selectedAssigneeId !== 'all') {
+    filteredTasks = filteredTasks.filter(task =>
+      task.assignees?.some(a => a.user_id === selectedAssigneeId)
+    )
+  }
+
+  // Enhanced search: search in task title, description, project name, and assignee names
+  if (searchQuery) {
+    const query = searchQuery.toLowerCase()
+    filteredTasks = filteredTasks.filter(task => {
+      const titleMatch = task.title.toLowerCase().includes(query)
+      const descMatch = task.description?.toLowerCase().includes(query)
+      const projectMatch = task.project?.name.toLowerCase().includes(query)
+      const assigneeMatch = task.assignees?.some(a =>
+        a.profile?.full_name?.toLowerCase().includes(query) ||
+        a.profile?.email?.toLowerCase().includes(query)
+      )
+      return titleMatch || descMatch || projectMatch || assigneeMatch
+    })
+  }
 
   // Group tasks by status for better organization and sort by position
   const groupedTasks = TASK_STATUSES.reduce((acc, status) => {
@@ -603,7 +663,7 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
           <div className="relative w-full sm:flex-1 sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search tasks..."
+              placeholder="Search tasks, projects, or people..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -611,7 +671,7 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
           </div>
           {!projectId && (
             <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-              <SelectTrigger className="w-full sm:w-64">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Select project" />
               </SelectTrigger>
               <SelectContent>
@@ -624,6 +684,37 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
               </SelectContent>
             </Select>
           )}
+          <Select value={selectedAssigneeId} onValueChange={setSelectedAssigneeId}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="All assignees" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  All assignees
+                </div>
+              </SelectItem>
+              {currentUser && (
+                <SelectItem value="me">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Assigned to me
+                  </div>
+                </SelectItem>
+              )}
+              {uniqueAssignees.map((assignee) => (
+                <SelectItem key={assignee.id} value={assignee.id}>
+                  <div className="flex flex-col items-start">
+                    <span>{assignee.name}</span>
+                    {assignee.email && assignee.name !== assignee.email && (
+                      <span className="text-xs text-muted-foreground">{assignee.email}</span>
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center space-x-2">
           <span className="text-sm text-muted-foreground hidden sm:inline">Total:</span>

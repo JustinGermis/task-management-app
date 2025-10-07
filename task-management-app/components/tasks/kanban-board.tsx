@@ -14,7 +14,7 @@ import {
   useSensors
 } from '@dnd-kit/core'
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { Plus, Filter, Search } from 'lucide-react'
+import { Plus, Filter, Search, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -24,7 +24,7 @@ import { TaskCardOverlay } from './task-card-overlay'
 import { CreateTaskDialog } from './create-task-dialog'
 import { TaskDetailsEnhanced } from './task-details-enhanced'
 import { OnlineStatus } from '@/components/shared/online-status'
-import { getTasks, updateTask, getProjects } from '@/lib/api/simple-api'
+import { getTasks, updateTask, getProjects, getCurrentUserProfile } from '@/lib/api/simple-api'
 import { useTaskUpdates } from '@/lib/hooks/use-realtime'
 import { TaskWithDetails, TaskStatus, Column, Project } from '@/lib/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -60,6 +60,8 @@ export function KanbanBoard() {
     const saved = localStorage.getItem(DROPDOWN_KEY)
     return saved || 'all'
   })
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('all')
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   // Configure sensors for drag detection
   const sensors = useSensors(
@@ -80,6 +82,7 @@ export function KanbanBoard() {
   )
 
   useEffect(() => {
+    loadCurrentUser()
     loadProjects()
     loadTasks()
   }, [])
@@ -165,11 +168,33 @@ export function KanbanBoard() {
   useTaskUpdates(null, handleTaskChange)
 
   useEffect(() => {
-    // Filter tasks by search query
-    const filteredTasks = tasks.filter(task => 
-      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    let filteredTasks = tasks
+
+    // Filter by assignee
+    if (selectedAssigneeId === 'me' && currentUser) {
+      filteredTasks = filteredTasks.filter(task =>
+        task.assignees?.some(a => a.user_id === currentUser.id)
+      )
+    } else if (selectedAssigneeId !== 'all') {
+      filteredTasks = filteredTasks.filter(task =>
+        task.assignees?.some(a => a.user_id === selectedAssigneeId)
+      )
+    }
+
+    // Enhanced search: search in task title, description, project name, and assignee names
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filteredTasks = filteredTasks.filter(task => {
+        const titleMatch = task.title.toLowerCase().includes(query)
+        const descMatch = task.description?.toLowerCase().includes(query)
+        const projectMatch = task.project?.name.toLowerCase().includes(query)
+        const assigneeMatch = task.assignees?.some(a =>
+          a.profile?.full_name?.toLowerCase().includes(query) ||
+          a.profile?.email?.toLowerCase().includes(query)
+        )
+        return titleMatch || descMatch || projectMatch || assigneeMatch
+      })
+    }
 
     // Organize tasks into columns and sort by position
     const newColumns: Column[] = COLUMNS.map(col => ({
@@ -179,9 +204,34 @@ export function KanbanBoard() {
         .filter(task => task.status === col.id)
         .sort((a, b) => (a.position || 0) - (b.position || 0)),
     }))
-    
+
     setColumns(newColumns)
-  }, [tasks, searchQuery])
+  }, [tasks, searchQuery, selectedAssigneeId, currentUser])
+
+  const loadCurrentUser = async () => {
+    try {
+      const profile = await getCurrentUserProfile()
+      setCurrentUser(profile)
+    } catch (error) {
+      console.error('Failed to load current user:', error)
+    }
+  }
+
+  // Get unique assignees from all tasks
+  const uniqueAssignees = Array.from(
+    new Map(
+      tasks.flatMap(task =>
+        (task.assignees || []).map(a => [
+          a.user_id,
+          {
+            id: a.user_id,
+            name: a.profile?.full_name || a.profile?.email || 'Unknown',
+            email: a.profile?.email || ''
+          }
+        ])
+      )
+    ).values()
+  )
 
   const loadProjects = async () => {
     // Check cache first
@@ -414,14 +464,14 @@ export function KanbanBoard() {
         <div className="relative w-full sm:flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search tasks..."
+            placeholder="Search tasks, projects, or people..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
           />
         </div>
         <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-          <SelectTrigger className="w-full sm:w-64">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="All projects" />
           </SelectTrigger>
           <SelectContent>
@@ -433,18 +483,40 @@ export function KanbanBoard() {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button variant="outline" size="sm" className="hidden sm:flex">
-            <Filter className="mr-2 h-4 w-4" />
-            Filters
-          </Button>
-          <Button variant="outline" size="sm" className="sm:hidden">
-            <Filter className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-muted-foreground hidden sm:inline">Total:</span>
-            <Badge variant="secondary">{tasks.length} tasks</Badge>
-          </div>
+        <Select value={selectedAssigneeId} onValueChange={setSelectedAssigneeId}>
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder="All assignees" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                All assignees
+              </div>
+            </SelectItem>
+            {currentUser && (
+              <SelectItem value="me">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Assigned to me
+                </div>
+              </SelectItem>
+            )}
+            {uniqueAssignees.map((assignee) => (
+              <SelectItem key={assignee.id} value={assignee.id}>
+                <div className="flex flex-col items-start">
+                  <span>{assignee.name}</span>
+                  {assignee.email && assignee.name !== assignee.email && (
+                    <span className="text-xs text-muted-foreground">{assignee.email}</span>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-muted-foreground hidden sm:inline">Total:</span>
+          <Badge variant="secondary">{tasks.length} tasks</Badge>
         </div>
       </div>
 

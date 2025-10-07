@@ -770,7 +770,7 @@ export async function getTaskAssignees(taskId: string) {
 export async function addTaskAssignee(taskId: string, userId: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   if (!user) throw new Error('Not authenticated')
 
   try {
@@ -781,7 +781,7 @@ export async function addTaskAssignee(taskId: string, userId: string) {
         user_id: userId,
         assigned_by: user.id,
       })
-      .select('*, profiles!user_id(*)')
+      .select('*')
       .single()
 
     if (error) throw error
