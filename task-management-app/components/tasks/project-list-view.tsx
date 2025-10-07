@@ -276,19 +276,16 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
   // Listen for cache updates from other views
   useEffect(() => {
     const handleCacheUpdate = (event: CustomEvent) => {
-      const { key } = event.detail
-      // If tasks cache for our project was updated, reload from cache
-      if (key === CACHE_KEYS.TASKS(selectedProjectId)) {
-        const cached = cache.get(key)
-        if (cached) {
-          setTasks(cached)
-        }
+      const { key, data } = event.detail
+      // If tasks cache for our project was updated, use the data from the event
+      if (key === CACHE_KEYS.TASKS(selectedProjectId) && data) {
+        setTasks(data)
       }
     }
 
     window.addEventListener('cache-updated', handleCacheUpdate as EventListener)
     return () => window.removeEventListener('cache-updated', handleCacheUpdate as EventListener)
-  }, [selectedProjectId, cache])
+  }, [selectedProjectId])
 
   useEffect(() => {
     loadTasks()

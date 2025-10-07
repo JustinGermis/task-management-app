@@ -87,23 +87,20 @@ export function KanbanBoard() {
   // Listen for cache updates from other views
   useEffect(() => {
     const handleCacheUpdate = (event: CustomEvent) => {
-      const { key } = event.detail
+      const { key, data } = event.detail
       const expectedKey = CACHE_KEYS.TASKS(selectedProjectId)
       console.log('[Kanban] Cache update event:', key, 'expected:', expectedKey, 'match:', key === expectedKey)
-      // If tasks cache for our project was updated, reload from cache
-      if (key === expectedKey) {
-        const cached = cache.get(key)
-        if (cached) {
-          console.log('[Kanban] Updating tasks from cache:', cached.length, 'tasks')
-          console.log('[Kanban] Task statuses:', cached.map((t: TaskWithDetails) => `${t.id.slice(0, 8)}: ${t.status}`))
-          setTasks(cached)
-        }
+      // If tasks cache for our project was updated, use the data from the event
+      if (key === expectedKey && data) {
+        console.log('[Kanban] Updating tasks from event data:', data.length, 'tasks')
+        console.log('[Kanban] Task statuses:', data.map((t: TaskWithDetails) => `${t.id.slice(0, 8)}: ${t.status}`))
+        setTasks(data)
       }
     }
 
     window.addEventListener('cache-updated', handleCacheUpdate as EventListener)
     return () => window.removeEventListener('cache-updated', handleCacheUpdate as EventListener)
-  }, [selectedProjectId, cache])
+  }, [selectedProjectId])
 
   useEffect(() => {
     loadTasks()

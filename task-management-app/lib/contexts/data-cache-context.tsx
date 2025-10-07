@@ -32,9 +32,9 @@ export function DataCacheProvider({ children }: { children: ReactNode }) {
       const newCache = new Map(prev)
       newCache.set(key, { data, timestamp: Date.now() })
 
-      // Dispatch custom event to notify all components that cache has updated
-      console.log('[Cache] Updated:', key, 'dispatching event')
-      window.dispatchEvent(new CustomEvent('cache-updated', { detail: { key } }))
+      // Dispatch custom event with the updated data to avoid race conditions
+      console.log('[Cache] Updated:', key, 'dispatching event with data')
+      window.dispatchEvent(new CustomEvent('cache-updated', { detail: { key, data } }))
 
       return newCache
     })
