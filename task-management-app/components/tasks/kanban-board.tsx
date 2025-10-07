@@ -112,8 +112,34 @@ export function KanbanBoard() {
   const updateTasksAndCache = (updater: (prev: TaskWithDetails[]) => TaskWithDetails[]) => {
     setTasks(prev => {
       const newTasks = updater(prev)
+      console.log('[Kanban] Updating cache for project:', selectedProjectId, 'tasks:', newTasks.length)
       // Update cache with new state
       cache.set(CACHE_KEYS.TASKS(selectedProjectId), newTasks)
+
+      // Also update the "all" cache if it exists and we're in a specific project
+      if (selectedProjectId !== 'all') {
+        const allCacheKey = CACHE_KEYS.TASKS('all')
+        const allCache = cache.get(allCacheKey)
+        console.log('[Kanban] Checking for "all" cache:', allCacheKey, 'exists:', !!allCache)
+        if (allCache) {
+          console.log('[Kanban] "all" cache exists with', allCache.length, 'tasks, updating...')
+          // Update the task in the "all" cache too
+          const updatedAllCache = allCache.map((t: TaskWithDetails) => {
+            const updated = newTasks.find((nt: TaskWithDetails) => nt.id === t.id)
+            if (updated && t.id === updated.id && t.status !== updated.status) {
+              console.log('[Kanban] Updating task in "all" cache:', t.id, 'status:', t.status, '->', updated.status)
+            }
+            return updated || t
+          })
+          console.log('[Kanban] Setting updated "all" cache with', updatedAllCache.length, 'tasks')
+          cache.set(allCacheKey, updatedAllCache)
+        } else {
+          console.log('[Kanban] "all" cache does not exist, skipping cross-cache update')
+        }
+      } else {
+        console.log('[Kanban] selectedProjectId is "all", not doing cross-cache update')
+      }
+
       return newTasks
     })
   }
@@ -316,10 +342,6 @@ export function KanbanBoard() {
   const handleTaskCreated = (newTask: TaskWithDetails) => {
     updateTasksAndCache(prev => [...prev, newTask])
     setIsCreateDialogOpen(false)
-    // Also invalidate 'all' cache if we're in a specific project
-    if (selectedProjectId !== 'all') {
-      cache.invalidate(CACHE_KEYS.TASKS('all'))
-    }
   }
 
   const handleTaskUpdated = (updatedTask: TaskWithDetails) => {
@@ -329,10 +351,6 @@ export function KanbanBoard() {
     // Also update the selectedTask if it's the one being updated
     if (selectedTask && selectedTask.id === updatedTask.id) {
       setSelectedTask(updatedTask)
-    }
-    // Also invalidate 'all' cache if we're in a specific project
-    if (selectedProjectId !== 'all') {
-      cache.invalidate(CACHE_KEYS.TASKS('all'))
     }
   }
 

@@ -505,10 +505,6 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
       console.log('[List] Updating selectedTask with new data')
       setSelectedTask(updatedTask)
     }
-    // Also invalidate 'all' cache if we're in a specific project
-    if (selectedProjectId !== 'all') {
-      cache.invalidate(CACHE_KEYS.TASKS('all'))
-    }
   }
 
   const handleTaskDeleted = (taskId: string) => {
