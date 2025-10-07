@@ -434,6 +434,17 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
       const effectiveProjectId = projectId || selectedProjectId
       if (effectiveProjectId) {
         cache.set(CACHE_KEYS.TASKS(effectiveProjectId), newTasks)
+
+        // Also update the "all" cache if it exists so other views see the change
+        const allCache = cache.get(CACHE_KEYS.TASKS('all'))
+        if (allCache) {
+          // Update the task in the "all" cache too
+          const updatedAllCache = allCache.map((t: TaskWithDetails) => {
+            const updated = newTasks.find((nt: TaskWithDetails) => nt.id === t.id)
+            return updated || t
+          })
+          cache.set(CACHE_KEYS.TASKS('all'), updatedAllCache)
+        }
       }
       return newTasks
     })
