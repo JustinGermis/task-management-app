@@ -326,6 +326,10 @@ export function KanbanBoard() {
     updateTasksAndCache(prev => prev.map(t =>
       t.id === updatedTask.id ? updatedTask : t
     ))
+    // Also update the selectedTask if it's the one being updated
+    if (selectedTask && selectedTask.id === updatedTask.id) {
+      setSelectedTask(updatedTask)
+    }
     // Also invalidate 'all' cache if we're in a specific project
     if (selectedProjectId !== 'all') {
       cache.invalidate(CACHE_KEYS.TASKS('all'))

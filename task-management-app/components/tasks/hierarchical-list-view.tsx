@@ -551,6 +551,11 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
       console.log('[Structure] Updated tasks in cache, count:', updated.length)
       return updated
     })
+    // Also update the selectedTask if it's the one being updated
+    if (selectedTask && selectedTask.id === updatedTask.id) {
+      console.log('[Structure] Updating selectedTask with new data')
+      setSelectedTask(updatedTask)
+    }
   }
 
   const handleTaskDeleted = (taskId: string) => {
