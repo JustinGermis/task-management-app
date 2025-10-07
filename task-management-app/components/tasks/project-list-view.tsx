@@ -302,20 +302,34 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
   const updateTasksAndCache = (updater: (prev: TaskWithDetails[]) => TaskWithDetails[]) => {
     setTasks(prev => {
       const newTasks = updater(prev)
+      console.log('[List] Updating cache for project:', selectedProjectId, 'tasks:', newTasks.length)
       // Update cache with new state
       cache.set(CACHE_KEYS.TASKS(selectedProjectId), newTasks)
 
       // Also update the "all" cache if it exists and we're in a specific project
       if (selectedProjectId !== 'all') {
-        const allCache = cache.get(CACHE_KEYS.TASKS('all'))
+        const allCacheKey = CACHE_KEYS.TASKS('all')
+        const allCache = cache.get(allCacheKey)
+        console.log('[List] Checking for "all" cache:', allCacheKey, 'exists:', !!allCache)
         if (allCache) {
+          console.log('[List] "all" cache exists with', allCache.length, 'tasks, updating...')
+          console.log('[List] newTasks IDs:', newTasks.map(t => t.id))
+          console.log('[List] allCache IDs:', allCache.map((t: TaskWithDetails) => t.id))
           // Update the task in the "all" cache too
           const updatedAllCache = allCache.map((t: TaskWithDetails) => {
             const updated = newTasks.find((nt: TaskWithDetails) => nt.id === t.id)
+            if (updated && t.id === updated.id && t.status !== updated.status) {
+              console.log('[List] Updating task in "all" cache:', t.id, 'status:', t.status, '->', updated.status)
+            }
             return updated || t
           })
-          cache.set(CACHE_KEYS.TASKS('all'), updatedAllCache)
+          console.log('[List] Setting updated "all" cache with', updatedAllCache.length, 'tasks')
+          cache.set(allCacheKey, updatedAllCache)
+        } else {
+          console.log('[List] "all" cache does not exist, skipping cross-cache update')
         }
+      } else {
+        console.log('[List] selectedProjectId is "all", not doing cross-cache update')
       }
       return newTasks
     })

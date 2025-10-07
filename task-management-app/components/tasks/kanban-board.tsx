@@ -95,6 +95,7 @@ export function KanbanBoard() {
         const cached = cache.get(key)
         if (cached) {
           console.log('[Kanban] Updating tasks from cache:', cached.length, 'tasks')
+          console.log('[Kanban] Task statuses:', cached.map((t: TaskWithDetails) => `${t.id.slice(0, 8)}: ${t.status}`))
           setTasks(cached)
         }
       }
