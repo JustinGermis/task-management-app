@@ -53,6 +53,7 @@ export function CreateTaskDialog({
     title: '',
     description: '',
     priority: 'medium' as TaskPriority,
+    start_date: '',
     due_date: '',
     project_id: projectId || '',
     section_id: parentTaskId || 'no_section',
@@ -123,6 +124,7 @@ export function CreateTaskDialog({
         title: formData.title,
         description: formData.description || undefined,
         priority: formData.priority,
+        start_date: formData.start_date || undefined,
         due_date: formData.due_date || undefined,
         project_id: formData.project_id,
         parent_task_id: formData.section_id === 'no_section' ? undefined : formData.section_id,
@@ -153,6 +155,7 @@ export function CreateTaskDialog({
         title: '',
         description: '',
         priority: 'medium',
+        start_date: '',
         due_date: '',
         project_id: projectId || '',
         section_id: 'no_section',
@@ -189,7 +192,7 @@ export function CreateTaskDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>{parentTaskId ? 'Create Subtask' : 'Create New Task'}</DialogTitle>
           <DialogDescription>
@@ -227,16 +230,16 @@ export function CreateTaskDialog({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select 
-                value={formData.priority} 
+          <div className="space-y-2">
+            <Label>Task Details</Label>
+            <div className="flex flex-wrap gap-3">
+              <Select
+                value={formData.priority}
                 onValueChange={handleSelectChange('priority')}
                 disabled={isLoading}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select priority" />
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
                   {TASK_PRIORITIES.map((priority) => (
@@ -246,17 +249,14 @@ export function CreateTaskDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select 
-                value={formData.status} 
+              <Select
+                value={formData.status}
                 onValueChange={handleSelectChange('status')}
                 disabled={isLoading}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   {TASK_STATUSES.map((status) => (
@@ -269,16 +269,46 @@ export function CreateTaskDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="due_date">Due Date (Optional)</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-[180px] justify-start text-left font-normal",
+                      !formData.start_date && "text-muted-foreground"
+                    )}
+                    disabled={isLoading}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.start_date ? (
+                      format(new Date(formData.start_date), "PPP")
+                    ) : (
+                      <span>Start date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.start_date ? new Date(formData.start_date) : undefined}
+                    onSelect={(date) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        start_date: date ? format(date, 'yyyy-MM-dd') : ''
+                      }))
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[180px] justify-start text-left font-normal",
                       !formData.due_date && "text-muted-foreground"
                     )}
                     disabled={isLoading}
@@ -287,7 +317,7 @@ export function CreateTaskDialog({
                     {formData.due_date ? (
                       format(new Date(formData.due_date), "PPP")
                     ) : (
-                      <span>Pick a date</span>
+                      <span>Due date</span>
                     )}
                   </Button>
                 </PopoverTrigger>

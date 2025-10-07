@@ -66,6 +66,7 @@ export function TaskDetailsEnhanced({
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('')
   const [status, setStatus] = useState('')
+  const [startDate, setStartDate] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [projectId, setProjectId] = useState('')
   const [taskColor, setTaskColor] = useState('')
@@ -100,6 +101,7 @@ export function TaskDetailsEnhanced({
       setDescription(task.description || '')
       setPriority(task.priority || 'medium')
       setStatus(task.status || 'todo')
+      setStartDate(task.start_date ? task.start_date.split('T')[0] : '')
       setDueDate(task.due_date ? task.due_date.split('T')[0] : '')
       setProjectId(task.project_id)
       setTaskColor(task.color || '#6b7280')
@@ -177,6 +179,7 @@ export function TaskDetailsEnhanced({
         description,
         priority,
         status,
+        start_date: startDate || null,
         due_date: dueDate || null,
         color: taskColor,
       }
@@ -339,11 +342,12 @@ export function TaskDetailsEnhanced({
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   )
 
-  const hasChanges = 
+  const hasChanges =
     title !== task.title ||
     description !== (task.description || '') ||
     priority !== (task.priority || 'medium') ||
     status !== (task.status || 'todo') ||
+    startDate !== (task.start_date ? task.start_date.split('T')[0] : '') ||
     dueDate !== (task.due_date ? task.due_date.split('T')[0] : '') ||
     projectId !== task.project_id ||
     taskColor !== (task.color || '#6b7280')
@@ -381,7 +385,7 @@ export function TaskDetailsEnhanced({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Status, Priority, Due Date Row */}
+          {/* Status, Priority, Dates Row */}
           <div className="flex flex-wrap gap-3">
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="w-32">
@@ -418,6 +422,35 @@ export function TaskDetailsEnhanced({
                   variant="outline"
                   className={cn(
                     "w-[180px] justify-start text-left font-normal",
+                    !startDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? (
+                    format(new Date(startDate), "PPP")
+                  ) : (
+                    <span>Start date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={startDate ? new Date(startDate) : undefined}
+                  onSelect={(date) => {
+                    setStartDate(date ? format(date, 'yyyy-MM-dd') : '')
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[180px] justify-start text-left font-normal",
                     !dueDate && "text-muted-foreground",
                     isOverdue && "text-red-600 border-red-200"
                   )}
@@ -426,7 +459,7 @@ export function TaskDetailsEnhanced({
                   {dueDate ? (
                     format(new Date(dueDate), "PPP")
                   ) : (
-                    <span>Pick a date</span>
+                    <span>Due date</span>
                   )}
                 </Button>
               </PopoverTrigger>
