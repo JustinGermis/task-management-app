@@ -522,9 +522,14 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
   }
 
   const handleTaskUpdated = (updatedTask: TaskWithDetails) => {
-    updateTasksAndCache(prev => prev.map(t =>
-      t.id === updatedTask.id ? updatedTask : t
-    ))
+    console.log('[Structure] handleTaskUpdated called:', updatedTask.id, 'status:', updatedTask.status)
+    updateTasksAndCache(prev => {
+      const updated = prev.map(t =>
+        t.id === updatedTask.id ? updatedTask : t
+      )
+      console.log('[Structure] Updated tasks in cache, count:', updated.length)
+      return updated
+    })
   }
 
   const handleTaskDeleted = (taskId: string) => {

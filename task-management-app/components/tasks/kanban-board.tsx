@@ -88,10 +88,13 @@ export function KanbanBoard() {
   useEffect(() => {
     const handleCacheUpdate = (event: CustomEvent) => {
       const { key } = event.detail
+      const expectedKey = CACHE_KEYS.TASKS(selectedProjectId)
+      console.log('[Kanban] Cache update event:', key, 'expected:', expectedKey, 'match:', key === expectedKey)
       // If tasks cache for our project was updated, reload from cache
-      if (key === CACHE_KEYS.TASKS(selectedProjectId)) {
+      if (key === expectedKey) {
         const cached = cache.get(key)
         if (cached) {
+          console.log('[Kanban] Updating tasks from cache:', cached.length, 'tasks')
           setTasks(cached)
         }
       }
