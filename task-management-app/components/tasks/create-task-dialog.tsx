@@ -22,7 +22,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { createTask, getProjects, getTasks } from '@/lib/api/simple-api'
+import { createTask, getProjects, getTasks, addTaskAssignee, getTaskAssignees } from '@/lib/api/simple-api'
 import { TaskWithDetails, ProjectWithDetails, TaskPriority } from '@/lib/types'
 import { TASK_PRIORITIES, TASK_STATUSES } from '@/lib/constants'
 import { getSections, getSectionDisplayName } from '@/lib/task-utils'
@@ -35,15 +35,17 @@ interface CreateTaskDialogProps {
   projectId?: string
   parentTaskId?: string
   defaultStatus?: string
+  defaultAssigneeId?: string
 }
 
-export function CreateTaskDialog({ 
-  isOpen, 
-  onOpenChange, 
-  onTaskCreated, 
+export function CreateTaskDialog({
+  isOpen,
+  onOpenChange,
+  onTaskCreated,
   projectId,
   parentTaskId,
-  defaultStatus 
+  defaultStatus,
+  defaultAssigneeId
 }: CreateTaskDialogProps) {
   const [projects, setProjects] = useState<ProjectWithDetails[]>([])
   const [sections, setSections] = useState<TaskWithDetails[]>([])
@@ -127,10 +129,18 @@ export function CreateTaskDialog({
         status: formData.status,
       })
 
+      // Auto-assign task if defaultAssigneeId is provided
+      if (defaultAssigneeId) {
+        await addTaskAssignee(task.id, defaultAssigneeId)
+      }
+
+      // Fetch assignees for the created task
+      const assignees = await getTaskAssignees(task.id)
+
       // Create a full task object for the UI
       const fullTask: TaskWithDetails = {
         ...task,
-        assignees: [],
+        assignees,
         comments: [],
         labels: [],
         project: projects.find(p => p.id === formData.project_id),

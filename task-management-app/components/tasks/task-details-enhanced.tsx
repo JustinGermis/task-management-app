@@ -20,6 +20,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Calendar as CalendarPicker } from '@/components/ui/calendar'
 import { TaskWithDetails } from '@/lib/types'
 import { TASK_STATUSES, TASK_PRIORITIES, DEFAULT_LABELS, TASK_COLORS } from '@/lib/constants'
@@ -495,30 +501,42 @@ export function TaskDetailsEnhanced({
               <span>Assignees</span>
             </label>
             <div className="flex flex-wrap items-center gap-2">
-              {assignees.map((assignee) => {
-                const profile = assignee.profiles
-                if (!profile) return null
-                
-                return (
-                  <Badge key={assignee.user_id} variant="secondary" className="pr-1">
-                    <Avatar className="h-5 w-5 mr-1">
-                      <AvatarImage src={profile.avatar_url || undefined} />
-                      <AvatarFallback className="text-xs">
-                        {profile.full_name?.charAt(0) || profile.email.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    {profile.full_name || profile.email}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-4 w-4 p-0 ml-1 hover:bg-transparent"
-                      onClick={() => handleRemoveAssignee(assignee.user_id)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                )
-              })}
+              <TooltipProvider>
+                {assignees.map((assignee) => {
+                  const profile = assignee.profiles
+                  if (!profile) return null
+
+                  return (
+                    <Tooltip key={assignee.user_id}>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary" className="pr-1">
+                          <Avatar className="h-5 w-5 mr-1">
+                            <AvatarImage src={profile.avatar_url || undefined} />
+                            <AvatarFallback className="text-xs">
+                              {profile.full_name?.charAt(0) || profile.email.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {profile.full_name || profile.email}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-4 w-4 p-0 ml-1 hover:bg-transparent"
+                            onClick={() => handleRemoveAssignee(assignee.user_id)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="text-xs">
+                          <div className="font-medium">{profile.full_name || profile.email}</div>
+                          {profile.full_name && <div className="text-muted-foreground">{profile.email}</div>}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                })}
+              </TooltipProvider>
               
               <Popover open={isAssigneePopoverOpen} onOpenChange={setIsAssigneePopoverOpen}>
                 <PopoverTrigger asChild>
@@ -533,16 +551,21 @@ export function TaskDetailsEnhanced({
                       <Button
                         key={user.id}
                         variant="ghost"
-                        className="w-full justify-start h-8"
+                        className="w-full justify-start h-auto py-2"
                         onClick={() => handleAddAssignee(user.id)}
                       >
-                        <Avatar className="h-5 w-5 mr-2">
+                        <Avatar className="h-5 w-5 mr-2 flex-shrink-0">
                           <AvatarImage src={user.avatar_url || undefined} />
                           <AvatarFallback className="text-xs">
                             {user.full_name?.charAt(0) || user.email.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
-                        {user.full_name || user.email}
+                        <div className="flex flex-col items-start text-left">
+                          <div className="text-sm">{user.full_name || user.email}</div>
+                          {user.full_name && (
+                            <div className="text-xs text-muted-foreground">{user.email}</div>
+                          )}
+                        </div>
                       </Button>
                     ))}
                     {availableUsersToAdd.length === 0 && (

@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CheckCircle2, Circle, Clock, AlertCircle, Folder } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, AlertCircle, Folder, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getTasks, getCurrentUserProfile } from '@/lib/api/simple-api'
 import { TaskDetailsEnhanced } from './task-details-enhanced'
+import { CreateTaskDialog } from './create-task-dialog'
 import { useDataCache } from '@/lib/contexts/data-cache-context'
 import { formatDate } from '@/lib/utils'
 
@@ -17,7 +19,15 @@ interface TaskWithDetails {
   priority: string
   due_date?: string
   project_id: string
-  assigned_to?: string
+  assignees?: Array<{
+    id: string
+    user_id: string
+    profile?: {
+      id: string
+      email: string
+      full_name?: string
+    }
+  }>
   project?: {
     id: string
     name: string
@@ -44,6 +54,7 @@ export function MyTasksView() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -94,7 +105,9 @@ export function MyTasksView() {
     // Check cache first
     const cached = cache.get(CACHE_KEYS.MY_TASKS)
     if (cached && !cache.isStale(CACHE_KEYS.MY_TASKS)) {
-      setTasks(cached.filter((t: TaskWithDetails) => t.assigned_to === userIdToUse))
+      setTasks(cached.filter((t: TaskWithDetails) =>
+        t.assignees?.some(a => a.user_id === userIdToUse)
+      ))
       return
     }
 
@@ -103,7 +116,9 @@ export function MyTasksView() {
       const allTasks = await getTasks()
 
       // Filter to only tasks assigned to current user
-      const myTasks = allTasks.filter((t: TaskWithDetails) => t.assigned_to === userIdToUse)
+      const myTasks = allTasks.filter((t: TaskWithDetails) =>
+        t.assignees?.some(a => a.user_id === userIdToUse)
+      )
 
       setTasks(myTasks)
       cache.set(CACHE_KEYS.MY_TASKS, myTasks)
@@ -162,6 +177,24 @@ export function MyTasksView() {
     }
   }
 
+  const handleTaskCreated = (newTask: TaskWithDetails) => {
+    // Add the new task to the list
+    updateTasksAndCache(prev => [newTask, ...prev])
+
+    // Invalidate project-specific caches so other views reload
+    if (newTask.project_id) {
+      cache.invalidate(`tasks:list:${newTask.project_id}`)
+      cache.invalidate(`tasks:kanban:${newTask.project_id}`)
+      cache.invalidate(`tasks:structure:${newTask.project_id}`)
+      // Also invalidate 'all' caches
+      cache.invalidate('tasks:list:all')
+      cache.invalidate('tasks:kanban:all')
+      cache.invalidate('tasks:structure:all')
+    }
+
+    setShowCreateDialog(false)
+  }
+
   const groupedTasks = statusOrder.reduce((acc, status) => {
     acc[status] = tasks.filter(t => t.status === status)
     return acc
@@ -187,22 +220,50 @@ export function MyTasksView() {
 
   if (tasks.length === 0) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-center py-12">
-            <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">No tasks assigned to you</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Tasks assigned to you will appear here
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <>
+        <div className="flex justify-end mb-4">
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Task
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-12">
+              <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium text-muted-foreground">No tasks assigned to you</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Create a task to get started
+              </p>
+              <Button
+                className="mt-4"
+                onClick={() => setShowCreateDialog(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Your First Task
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <CreateTaskDialog
+          isOpen={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onTaskCreated={handleTaskCreated}
+          defaultAssigneeId={currentUser?.id}
+        />
+      </>
     )
   }
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Task
+        </Button>
+      </div>
       {statusOrder.map(status => {
         const statusTasks = groupedTasks[status]
         if (statusTasks.length === 0) return null
@@ -282,6 +343,13 @@ export function MyTasksView() {
           onTaskDeleted={handleTaskDeleted}
         />
       )}
+
+      <CreateTaskDialog
+        isOpen={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onTaskCreated={handleTaskCreated}
+        defaultAssigneeId={currentUser?.id}
+      />
     </div>
   )
 }
