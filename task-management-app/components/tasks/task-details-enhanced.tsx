@@ -168,6 +168,7 @@ export function TaskDetailsEnhanced({
   if (!task || !currentTask) return null
 
   const handleSave = async () => {
+    console.log('[TaskDetailsEnhanced] handleSave called, task:', task.id.slice(0, 8), 'old status:', task.status, 'new status:', status)
     setIsLoading(true)
     try {
       const updates: any = {
@@ -178,17 +179,23 @@ export function TaskDetailsEnhanced({
         due_date: dueDate || null,
         color: taskColor,
       }
-      
+
       // Only update project if it changed
       if (projectId !== task.project_id) {
         updates.project_id = projectId
       }
-      
+
+      console.log('[TaskDetailsEnhanced] Calling updateTask with:', updates)
       const updatedTask = await updateTask(task.id, updates)
+      console.log('[TaskDetailsEnhanced] updateTask returned:', updatedTask)
+
+      console.log('[TaskDetailsEnhanced] Fetching full task with getTask')
       const fullTask = await getTask(task.id)
-      
+      console.log('[TaskDetailsEnhanced] getTask returned task with status:', fullTask?.status)
+
       if (fullTask) {
         setCurrentTask(fullTask)
+        console.log('[TaskDetailsEnhanced] Calling onTaskUpdated with task:', fullTask.id.slice(0, 8), 'status:', fullTask.status)
         onTaskUpdated(fullTask)
       }
     } catch (error) {

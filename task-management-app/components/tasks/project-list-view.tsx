@@ -495,9 +495,14 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
   }
 
   const handleTaskUpdated = (updatedTask: TaskWithDetails) => {
-    updateTasksAndCache(prev => prev.map(t =>
-      t.id === updatedTask.id ? updatedTask : t
-    ))
+    console.log('[List] handleTaskUpdated called:', updatedTask.id, 'status:', updatedTask.status)
+    updateTasksAndCache(prev => {
+      const updated = prev.map(t =>
+        t.id === updatedTask.id ? updatedTask : t
+      )
+      console.log('[List] Updated tasks, count:', updated.length)
+      return updated
+    })
     // Also invalidate 'all' cache if we're in a specific project
     if (selectedProjectId !== 'all') {
       cache.invalidate(CACHE_KEYS.TASKS('all'))
