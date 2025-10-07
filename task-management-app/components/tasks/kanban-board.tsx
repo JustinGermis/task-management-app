@@ -168,7 +168,8 @@ export function KanbanBoard() {
   useTaskUpdates(null, handleTaskChange)
 
   useEffect(() => {
-    let filteredTasks = tasks
+    // First filter out sections (tasks with 📁 prefix)
+    let filteredTasks = getRegularTasks(tasks)
 
     // Filter by assignee
     if (selectedAssigneeId === 'me' && currentUser) {

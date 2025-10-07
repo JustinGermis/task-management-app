@@ -584,7 +584,8 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
   }
 
   // Filter tasks by assignee and search query
-  let filteredTasks = tasks
+  // First filter out sections (tasks with 📁 prefix)
+  let filteredTasks = getRegularTasks(tasks)
 
   // Filter by assignee
   if (selectedAssigneeId === 'me' && currentUser) {

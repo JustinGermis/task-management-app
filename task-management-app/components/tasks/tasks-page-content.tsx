@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { LayoutGrid, List, Network } from 'lucide-react'
+import { LayoutGrid, List, Network, GanttChart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { KanbanBoard } from './kanban-board'
 import { ProjectListView } from './project-list-view'
 import { HierarchicalListView } from './hierarchical-list-view'
+import { GanttView } from './gantt-view'
 
-type ViewMode = 'kanban' | 'list' | 'hierarchy'
+type ViewMode = 'kanban' | 'list' | 'hierarchy' | 'gantt'
 
 const VIEW_MODE_KEY = 'tasks:viewMode'
 
@@ -17,7 +18,7 @@ export function TasksPageContent() {
   // Load view mode from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(VIEW_MODE_KEY)
-    if (saved && ['kanban', 'list', 'hierarchy'].includes(saved)) {
+    if (saved && ['kanban', 'list', 'hierarchy', 'gantt'].includes(saved)) {
       setViewMode(saved as ViewMode)
     }
   }, [])
@@ -60,6 +61,15 @@ export function TasksPageContent() {
             <Network className="h-4 w-4" />
             <span>Structure</span>
           </Button>
+          <Button
+            variant={viewMode === 'gantt' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => handleViewModeChange('gantt')}
+            className="flex items-center space-x-2"
+          >
+            <GanttChart className="h-4 w-4" />
+            <span>Timeline</span>
+          </Button>
         </div>
       </div>
 
@@ -72,6 +82,9 @@ export function TasksPageContent() {
       </div>
       <div className={viewMode === 'hierarchy' ? 'block' : 'hidden'}>
         <HierarchicalListView />
+      </div>
+      <div className={viewMode === 'gantt' ? 'block' : 'hidden'}>
+        <GanttView />
       </div>
     </div>
   )
