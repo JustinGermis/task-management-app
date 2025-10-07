@@ -48,7 +48,7 @@ const CACHE_KEYS = {
   TASKS: (projectId: string) => `tasks:data:${projectId}`, // Shared across all views
 }
 
-const DROPDOWN_KEY = 'projectListView:selectedProjectId'
+const DROPDOWN_KEY = 'tasks:selectedProjectId' // Shared across all views
 
 interface DraggableTaskItemProps {
   task: TaskWithDetails

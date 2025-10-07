@@ -38,7 +38,7 @@ const CACHE_KEYS = {
   TASKS: (projectId: string) => `tasks:data:${projectId}`, // Shared across all views
 }
 
-const DROPDOWN_KEY = 'kanban:selectedProjectId'
+const DROPDOWN_KEY = 'tasks:selectedProjectId' // Shared across all views
 
 const COLUMNS = TASK_STATUSES.map(status => ({
   id: status.id,

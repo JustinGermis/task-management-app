@@ -54,7 +54,7 @@ const CACHE_KEYS = {
   TASKS: (projectId: string) => `tasks:data:${projectId}`, // Shared across all views
 }
 
-const DROPDOWN_KEY = 'hierarchicalListView:selectedProjectId'
+const DROPDOWN_KEY = 'tasks:selectedProjectId' // Shared across all views
 
 interface TaskTreeNode extends TaskWithDetails {
   children: TaskTreeNode[]
@@ -363,7 +363,7 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
     if (projectId) return projectId
     const saved = localStorage.getItem(DROPDOWN_KEY)
-    return saved || ''
+    return saved || 'all'
   })
   const [isLoading, setIsLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null)
