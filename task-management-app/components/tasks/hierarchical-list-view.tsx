@@ -50,8 +50,8 @@ interface HierarchicalListViewProps {
 }
 
 const CACHE_KEYS = {
-  PROJECTS: 'hierarchicalListView:projects',
-  TASKS: (projectId: string) => `hierarchicalListView:tasks:${projectId}`,
+  PROJECTS: 'tasks:projects', // Shared across all views
+  TASKS: (projectId: string) => `tasks:data:${projectId}`, // Shared across all views
 }
 
 const DROPDOWN_KEY = 'hierarchicalListView:selectedProjectId'

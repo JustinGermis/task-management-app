@@ -34,8 +34,8 @@ import { useDataCache } from '@/lib/contexts/data-cache-context'
 import { TASK_STATUSES } from '@/lib/constants'
 
 const CACHE_KEYS = {
-  PROJECTS: 'kanban:projects',
-  TASKS: (projectId: string) => `kanban:tasks:${projectId}`,
+  PROJECTS: 'tasks:projects', // Shared across all views
+  TASKS: (projectId: string) => `tasks:data:${projectId}`, // Shared across all views
 }
 
 const DROPDOWN_KEY = 'kanban:selectedProjectId'

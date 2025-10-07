@@ -44,8 +44,8 @@ interface ProjectListViewProps {
 }
 
 const CACHE_KEYS = {
-  PROJECTS: 'projectListView:projects',
-  TASKS: (projectId: string) => `projectListView:tasks:${projectId}`,
+  PROJECTS: 'tasks:projects', // Shared across all views
+  TASKS: (projectId: string) => `tasks:data:${projectId}`, // Shared across all views
 }
 
 const DROPDOWN_KEY = 'projectListView:selectedProjectId'
