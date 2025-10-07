@@ -433,17 +433,24 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
       // Update cache with new state
       const effectiveProjectId = projectId || selectedProjectId
       if (effectiveProjectId) {
+        console.log('[Structure] Updating cache for project:', effectiveProjectId, 'tasks:', newTasks.length)
         cache.set(CACHE_KEYS.TASKS(effectiveProjectId), newTasks)
 
         // Also update the "all" cache if it exists so other views see the change
-        const allCache = cache.get(CACHE_KEYS.TASKS('all'))
+        const allCacheKey = CACHE_KEYS.TASKS('all')
+        const allCache = cache.get(allCacheKey)
+        console.log('[Structure] Checking for "all" cache:', allCacheKey, 'exists:', !!allCache)
         if (allCache) {
+          console.log('[Structure] "all" cache exists with', allCache.length, 'tasks, updating...')
           // Update the task in the "all" cache too
           const updatedAllCache = allCache.map((t: TaskWithDetails) => {
             const updated = newTasks.find((nt: TaskWithDetails) => nt.id === t.id)
             return updated || t
           })
-          cache.set(CACHE_KEYS.TASKS('all'), updatedAllCache)
+          console.log('[Structure] Setting updated "all" cache')
+          cache.set(allCacheKey, updatedAllCache)
+        } else {
+          console.log('[Structure] "all" cache does not exist, skipping cross-cache update')
         }
       }
       return newTasks
