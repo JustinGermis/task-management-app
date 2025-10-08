@@ -40,6 +40,8 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('all')
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [draggingTask, setDraggingTask] = useState<{ task: TaskWithDetails; mode: 'move' | 'resize-left' | 'resize-right' } | null>(null)
+  const [dragStartX, setDragStartX] = useState(0)
 
   useEffect(() => {
     loadProjects()
@@ -254,6 +256,64 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     return priorityConfig?.color || 'text-gray-500'
   }
 
+  const handleMouseDown = (e: React.MouseEvent, task: TaskWithDetails, mode: 'move' | 'resize-left' | 'resize-right') => {
+    e.stopPropagation()
+    setDraggingTask({ task, mode })
+    setDragStartX(e.clientX)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!draggingTask) return
+
+    const deltaX = e.clientX - dragStartX
+    const dayWidth = (e.currentTarget as HTMLElement).offsetWidth / days.length
+    const daysDelta = Math.round(deltaX / dayWidth)
+
+    if (daysDelta === 0) return
+
+    const taskStart = draggingTask.task.start_date ? parseISO(draggingTask.task.start_date) : null
+    const taskEnd = draggingTask.task.due_date ? parseISO(draggingTask.task.due_date) : null
+
+    let newStart = taskStart
+    let newEnd = taskEnd
+
+    if (draggingTask.mode === 'move') {
+      // Move both dates
+      if (taskStart) newStart = addDays(taskStart, daysDelta)
+      if (taskEnd) newEnd = addDays(taskEnd, daysDelta)
+    } else if (draggingTask.mode === 'resize-left') {
+      // Resize start date
+      if (taskStart) {
+        newStart = addDays(taskStart, daysDelta)
+        // Ensure start is before end
+        if (taskEnd && newStart > taskEnd) newStart = taskEnd
+      }
+    } else if (draggingTask.mode === 'resize-right') {
+      // Resize end date
+      if (taskEnd) {
+        newEnd = addDays(taskEnd, daysDelta)
+        // Ensure end is after start
+        if (taskStart && newEnd < taskStart) newEnd = taskStart
+      }
+    }
+
+    // Update the task
+    const updates: any = {}
+    if (newStart) updates.start_date = format(newStart, 'yyyy-MM-dd')
+    if (newEnd) updates.due_date = format(newEnd, 'yyyy-MM-dd')
+
+    if (Object.keys(updates).length > 0) {
+      updateTask(draggingTask.task.id, updates).then((updatedTask) => {
+        handleTaskUpdated(updatedTask)
+        setDragStartX(e.clientX)
+      })
+    }
+  }
+
+  const handleMouseUp = () => {
+    setDraggingTask(null)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header with filters and actions */}
@@ -359,7 +419,12 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
         </div>
 
         {/* Task Rows */}
-        <div className="max-h-[600px] overflow-y-auto">
+        <div
+          className="max-h-[600px] overflow-y-auto"
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Loading tasks...</div>
           ) : filteredTasks.length === 0 ? (
@@ -394,14 +459,30 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
                   </div>
                   <div className="flex-1 relative p-3">
                     <div
-                      className={`absolute top-1/2 transform -translate-y-1/2 h-8 ${getStatusColor(task.status)} rounded cursor-pointer hover:opacity-80 transition-opacity flex items-center px-2`}
+                      className="absolute top-1/2 transform -translate-y-1/2 h-8 rounded cursor-move hover:opacity-90 transition-opacity flex items-center px-2 group select-none"
                       style={{
                         left: position.left,
                         width: position.width,
+                        backgroundColor: task.color || '#6b7280',
                       }}
-                      onClick={() => setSelectedTask(task)}
+                      onMouseDown={(e) => handleMouseDown(e, task, 'move')}
+                      onClick={(e) => {
+                        if (!draggingTask) setSelectedTask(task)
+                      }}
                     >
-                      <span className="text-xs font-medium text-white truncate">{task.title}</span>
+                      {/* Left resize handle */}
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
+                        onMouseDown={(e) => handleMouseDown(e, task, 'resize-left')}
+                      />
+
+                      <span className="text-xs font-medium text-white truncate pointer-events-none">{task.title}</span>
+
+                      {/* Right resize handle */}
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
+                        onMouseDown={(e) => handleMouseDown(e, task, 'resize-right')}
+                      />
                     </div>
                   </div>
                 </div>
