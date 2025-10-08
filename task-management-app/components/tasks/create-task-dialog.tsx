@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CalendarIcon } from 'lucide-react'
-import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,17 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
+import { DateInput } from '@/components/ui/date-input'
 import { createTask, getProjects, getTasks, addTaskAssignee, getTaskAssignees } from '@/lib/api/simple-api'
 import { TaskWithDetails, ProjectWithDetails, TaskPriority } from '@/lib/types'
 import { TASK_PRIORITIES, TASK_STATUSES } from '@/lib/constants'
 import { getSections, getSectionDisplayName } from '@/lib/task-utils'
-import { cn } from '@/lib/utils'
 
 interface CreateTaskDialogProps {
   isOpen: boolean
@@ -270,71 +262,19 @@ export function CreateTaskDialog({
                 </SelectContent>
               </Select>
 
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[180px] justify-start text-left font-normal",
-                      !formData.start_date && "text-muted-foreground"
-                    )}
-                    disabled={isLoading}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.start_date ? (
-                      format(new Date(formData.start_date), "PPP")
-                    ) : (
-                      <span>Start date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.start_date ? new Date(formData.start_date) : undefined}
-                    onSelect={(date) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        start_date: date ? format(date, 'yyyy-MM-dd') : ''
-                      }))
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <DateInput
+                value={formData.start_date}
+                onChange={(value) => setFormData(prev => ({ ...prev, start_date: value }))}
+                placeholder="Start date"
+                disabled={isLoading}
+              />
 
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[180px] justify-start text-left font-normal",
-                      !formData.due_date && "text-muted-foreground"
-                    )}
-                    disabled={isLoading}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.due_date ? (
-                      format(new Date(formData.due_date), "PPP")
-                    ) : (
-                      <span>Due date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.due_date ? new Date(formData.due_date) : undefined}
-                    onSelect={(date) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        due_date: date ? format(date, 'yyyy-MM-dd') : ''
-                      }))
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <DateInput
+                value={formData.due_date}
+                onChange={(value) => setFormData(prev => ({ ...prev, due_date: value }))}
+                placeholder="Due date"
+                disabled={isLoading}
+              />
             </div>
           </div>
 

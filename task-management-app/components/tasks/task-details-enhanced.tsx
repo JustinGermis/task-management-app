@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { Calendar, CalendarIcon, MessageCircle, Users, Trash2, Clock, AlertCircle, X, Plus, Tag, Folder, Palette, Copy } from 'lucide-react'
-import { format } from 'date-fns'
+import { Calendar, MessageCircle, Users, Trash2, Clock, AlertCircle, X, Plus, Tag, Folder, Palette, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -21,7 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Calendar as CalendarPicker } from '@/components/ui/calendar'
+import { DateInput } from '@/components/ui/date-input'
 import { TaskWithDetails } from '@/lib/types'
 import { TASK_STATUSES, TASK_PRIORITIES, DEFAULT_LABELS, TASK_COLORS } from '@/lib/constants'
 import { 
@@ -416,64 +415,18 @@ export function TaskDetailsEnhanced({
               </SelectContent>
             </Select>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[180px] justify-start text-left font-normal",
-                    !startDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? (
-                    format(new Date(startDate), "PPP")
-                  ) : (
-                    <span>Start date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarPicker
-                  mode="single"
-                  selected={startDate ? new Date(startDate) : undefined}
-                  onSelect={(date) => {
-                    setStartDate(date ? format(date, 'yyyy-MM-dd') : '')
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <DateInput
+              value={startDate}
+              onChange={setStartDate}
+              placeholder="Start date"
+            />
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[180px] justify-start text-left font-normal",
-                    !dueDate && "text-muted-foreground",
-                    isOverdue && "text-red-600 border-red-200"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dueDate ? (
-                    format(new Date(dueDate), "PPP")
-                  ) : (
-                    <span>Due date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarPicker
-                  mode="single"
-                  selected={dueDate ? new Date(dueDate) : undefined}
-                  onSelect={(date) => {
-                    setDueDate(date ? format(date, 'yyyy-MM-dd') : '')
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <DateInput
+              value={dueDate}
+              onChange={setDueDate}
+              placeholder="Due date"
+              className={isOverdue ? "text-red-600 border-red-200" : ""}
+            />
           </div>
 
           {/* Color Picker */}
