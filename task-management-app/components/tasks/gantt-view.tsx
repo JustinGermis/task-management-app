@@ -56,7 +56,7 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
 
   useEffect(() => {
     loadTasks()
-  }, [selectedProjectId, cache])
+  }, [selectedProjectId])
 
   const handleTaskChange = useCallback((taskId: string, change: 'update' | 'delete') => {
     if (change === 'delete') {
@@ -64,7 +64,7 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     } else {
       loadTasks()
     }
-  }, [selectedProjectId, cache])
+  }, [selectedProjectId])
 
   useTaskUpdates(null, handleTaskChange)
 
@@ -110,8 +110,8 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
 
   const loadTasks = async () => {
     setIsLoading(true)
-    const projectFilter = selectedProjectId === 'all' ? null : selectedProjectId
-    const cacheKey = CACHE_KEYS.TASKS(projectFilter || 'all')
+    const projectFilter = selectedProjectId === 'all' ? undefined : selectedProjectId
+    const cacheKey = CACHE_KEYS.TASKS(selectedProjectId)
 
     const cached = cache.get(cacheKey)
     if (cached && !cache.isStale(cacheKey)) {
@@ -121,7 +121,7 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     }
 
     try {
-      const data = await getTasks({ projectId: projectFilter })
+      const data = await getTasks(projectFilter)
       setTasks(data)
       cache.set(cacheKey, data)
     } catch (error) {
