@@ -4,13 +4,11 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
-  Users,
   FolderOpen,
   CheckSquare,
   User,
   Settings,
   LogOut,
-  Building,
   Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -38,11 +36,6 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
-    name: 'Organizations',
-    href: '/organizations',
-    icon: Building,
-  },
-  {
     name: 'Projects',
     href: '/projects',
     icon: FolderOpen,
@@ -51,11 +44,6 @@ const navigation = [
     name: 'Tasks',
     href: '/tasks',
     icon: CheckSquare,
-  },
-  {
-    name: 'Team',
-    href: '/team',
-    icon: Users,
   },
 ]
 
@@ -117,17 +105,6 @@ export function Sidebar({ user, className }: SidebarProps) {
               Quick Actions
             </h3>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start flex items-center"
-            asChild
-          >
-            <Link href="/organizations/new" className="flex items-center">
-              <Plus className="h-4 w-4 mr-2 shrink-0" />
-              <span>New Organization</span>
-            </Link>
-          </Button>
           <Button
             variant="ghost"
             size="sm"
