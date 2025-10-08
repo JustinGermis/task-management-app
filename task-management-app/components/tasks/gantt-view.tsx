@@ -15,7 +15,7 @@ import { TaskWithDetails, Project } from '@/lib/types'
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/constants'
 import { getRegularTasks } from '@/lib/task-utils'
 import { useDataCache } from '@/lib/contexts/data-cache-context'
-import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, addMonths, subMonths, differenceInDays, addDays, parseISO, isWithinInterval, startOfDay } from 'date-fns'
+import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, addMonths, subMonths, differenceInDays, addDays, parseISO, isWithinInterval, startOfDay, eachMonthOfInterval } from 'date-fns'
 
 interface GanttViewProps {
   projectId?: string
@@ -39,7 +39,6 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all')
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('all')
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [currentMonth, setCurrentMonth] = useState(new Date())
   const [draggingTask, setDraggingTask] = useState<{ task: TaskWithDetails; mode: 'move' | 'resize-left' | 'resize-right'; originalStart: Date | null; originalEnd: Date | null } | null>(null)
   const [dragStartX, setDragStartX] = useState(0)
   const [dragOffset, setDragOffset] = useState(0)
@@ -166,13 +165,27 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     }
   }
 
-  // Calculate timeline first to use in filtering
-  const { days, startDate, endDate } = useMemo(() => {
-    const start = startOfMonth(currentMonth)
-    const end = endOfMonth(currentMonth)
+  // Calculate timeline - show 6 months (2 before current, current, 3 after)
+  const { days, startDate, endDate, monthGroups } = useMemo(() => {
+    const now = new Date()
+    const start = startOfMonth(subMonths(now, 2))
+    const end = endOfMonth(addMonths(now, 3))
     const days = eachDayOfInterval({ start, end })
-    return { days, startDate: start, endDate: end }
-  }, [currentMonth])
+
+    // Group days by month for headers
+    const months = eachMonthOfInterval({ start, end })
+    const monthGroups = months.map(monthStart => {
+      const monthEnd = endOfMonth(monthStart)
+      const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
+      return {
+        month: monthStart,
+        days: monthDays,
+        label: format(monthStart, 'MMMM yyyy')
+      }
+    })
+
+    return { days, startDate: start, endDate: end, monthGroups }
+  }, [])
 
   // Filter tasks - remove sections first, then apply other filters
   const filteredTasks = useMemo(() => {
@@ -204,21 +217,8 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
       })
     }
 
-    // Only show tasks with dates that overlap with the current month view
-    filtered = filtered.filter(task => {
-      if (!task.start_date && !task.due_date) return false
-
-      const taskStart = task.start_date ? startOfDay(parseISO(task.start_date)) : null
-      const taskEnd = task.due_date ? startOfDay(parseISO(task.due_date)) : null
-
-      const actualStart = taskStart || taskEnd!
-      const actualEnd = taskEnd || taskStart!
-
-      // Check if task overlaps with current month
-      return isWithinInterval(actualStart, { start: startDate, end: endDate }) ||
-             isWithinInterval(actualEnd, { start: startDate, end: endDate }) ||
-             (actualStart < startDate && actualEnd > endDate)
-    })
+    // Only show tasks with dates
+    filtered = filtered.filter(task => task.start_date || task.due_date)
 
     return filtered
   }, [tasks, searchQuery, selectedAssigneeId, currentUser, startDate, endDate])
@@ -229,15 +229,14 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
 
     if (!taskStart && !taskEnd) return null
 
+    const DAY_WIDTH = 40 // Fixed pixel width per day
+
     let actualStart = taskStart || taskEnd!
     let actualEnd = taskEnd || taskStart!
 
     // Apply drag offset for visual preview
     if (applyDragOffset && draggingTask && draggingTask.task.id === task.id && dragOffset !== 0) {
-      const dayWidth = 100 / days.length
-      const pixelWidth = (typeof window !== 'undefined' && document.querySelector('.gantt-timeline')?.clientWidth) || 1000
-      const actualDayWidth = pixelWidth / days.length
-      const daysDelta = Math.round(dragOffset / actualDayWidth)
+      const daysDelta = Math.round(dragOffset / DAY_WIDTH)
 
       if (draggingTask.mode === 'move') {
         if (actualStart) actualStart = addDays(actualStart, daysDelta)
@@ -255,18 +254,16 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
       }
     }
 
-    // Clamp to visible month range
+    // Clamp to visible range
     const visibleStart = actualStart < startDate ? startDate : actualStart
     const visibleEnd = actualEnd > endDate ? endDate : actualEnd
 
     const startOffset = differenceInDays(visibleStart, startDate)
     const duration = Math.max(1, differenceInDays(visibleEnd, visibleStart) + 1)
 
-    const dayWidth = 100 / days.length
-
     return {
-      left: `${startOffset * dayWidth}%`,
-      width: `${duration * dayWidth}%`,
+      left: `${startOffset * DAY_WIDTH}px`,
+      width: `${duration * DAY_WIDTH}px`,
       task
     }
   }
@@ -318,9 +315,8 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
       return
     }
 
-    const dayWidth = document.querySelector('.gantt-timeline')?.clientWidth ?? 0
-    const actualDayWidth = dayWidth / days.length
-    const daysDelta = Math.round(dragOffset / actualDayWidth)
+    const DAY_WIDTH = 40
+    const daysDelta = Math.round(dragOffset / DAY_WIDTH)
 
     if (daysDelta === 0) {
       setDraggingTask(null)
@@ -440,48 +436,40 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
         </div>
       </div>
 
-      {/* Month navigation */}
-      <div className="flex items-center justify-between bg-muted p-4 rounded-lg">
-        <Button variant="outline" size="sm" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-          Previous
-        </Button>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
-          <span className="font-semibold">{format(currentMonth, 'MMMM yyyy')}</span>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-          Next
-        </Button>
-      </div>
-
       {/* Gantt Chart */}
       <div className="border rounded-lg overflow-hidden bg-card">
-        {/* Timeline Header */}
+        {/* Timeline Header - Month groups */}
         <div className="border-b bg-muted/50">
           <div className="flex">
-            <div className="w-64 p-3 border-r font-semibold text-sm">Task</div>
-            <div className="flex-1 flex">
-              {days.map((day, index) => (
-                <div
-                  key={index}
-                  className="flex-1 p-2 text-center text-xs border-r last:border-r-0"
-                  style={{ minWidth: '30px' }}
-                >
-                  <div className="font-medium">{format(day, 'd')}</div>
-                  <div className="text-muted-foreground">{format(day, 'EEE')}</div>
-                </div>
-              ))}
+            <div className="w-64 p-3 border-r font-semibold text-sm sticky left-0 bg-muted/50 z-10">Task</div>
+            <div className="overflow-x-auto">
+              <div className="flex">
+                {monthGroups.map((monthGroup, monthIndex) => (
+                  <div key={monthIndex} className="border-r last:border-r-0">
+                    <div className="p-2 text-center font-semibold text-sm border-b bg-muted">
+                      {monthGroup.label}
+                    </div>
+                    <div className="flex">
+                      {monthGroup.days.map((day, dayIndex) => (
+                        <div
+                          key={dayIndex}
+                          className="p-2 text-center text-xs border-r last:border-r-0"
+                          style={{ width: '40px', minWidth: '40px' }}
+                        >
+                          <div className="font-medium">{format(day, 'd')}</div>
+                          <div className="text-muted-foreground text-[10px]">{format(day, 'EEE')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Task Rows */}
-        <div
-          className="max-h-[600px] overflow-y-auto gantt-timeline"
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        >
+        <div className="max-h-[600px] overflow-auto gantt-timeline">
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Loading tasks...</div>
           ) : filteredTasks.length === 0 ? (
@@ -489,68 +477,74 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
               No tasks with dates found. Tasks need start or due dates to appear in Gantt view.
             </div>
           ) : (
-            filteredTasks.map((task) => {
-              const position = getTaskPosition(task, true)
-              if (!position) return null
+            <div
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
+              {filteredTasks.map((task) => {
+                const position = getTaskPosition(task, true)
+                if (!position) return null
 
-              return (
-                <div key={task.id} className="flex border-b hover:bg-muted/50 transition-colors">
-                  <div className="w-64 p-3 border-r">
-                    <button
-                      onClick={() => setSelectedTask(task)}
-                      className="text-left w-full hover:text-primary transition-colors"
-                    >
-                      <div className="font-medium text-sm truncate">{task.title}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary" className={`${getStatusColor(task.status)} text-xs`}>
-                          {TASK_STATUSES.find(s => s.id === task.status)?.label}
-                        </Badge>
-                        {task.assignees && task.assignees.length > 0 && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {task.assignees.length}
-                          </span>
-                        )}
+                return (
+                  <div key={task.id} className="flex border-b hover:bg-muted/50 transition-colors">
+                    <div className="w-64 p-3 border-r sticky left-0 bg-card z-10">
+                      <button
+                        onClick={() => setSelectedTask(task)}
+                        className="text-left w-full hover:text-primary transition-colors"
+                      >
+                        <div className="font-medium text-sm truncate">{task.title}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary" className={`${getStatusColor(task.status)} text-xs`}>
+                            {TASK_STATUSES.find(s => s.id === task.status)?.label}
+                          </Badge>
+                          {task.assignees && task.assignees.length > 0 && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {task.assignees.length}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    </div>
+                    <div className="relative p-3" style={{ minWidth: `${days.length * 40}px` }}>
+                      <div
+                        className={`absolute top-1/2 transform -translate-y-1/2 h-8 rounded transition-all flex items-center px-2 group select-none ${
+                          draggingTask?.task.id === task.id && isDragging
+                            ? 'opacity-75 shadow-lg scale-105 cursor-grabbing'
+                            : 'cursor-grab hover:opacity-90'
+                        }`}
+                        style={{
+                          left: position.left,
+                          width: position.width,
+                          backgroundColor: task.color || '#6b7280',
+                        }}
+                        onMouseDown={(e) => handleMouseDown(e, task, 'move')}
+                        onClick={(e) => {
+                          if (!isDragging) setSelectedTask(task)
+                        }}
+                      >
+                        {/* Left resize handle */}
+                        <div
+                          className="absolute left-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
+                          onMouseDown={(e) => handleMouseDown(e, task, 'resize-left')}
+                          title="Drag to adjust start date"
+                        />
+
+                        <span className="text-xs font-medium text-white truncate pointer-events-none">{task.title}</span>
+
+                        {/* Right resize handle */}
+                        <div
+                          className="absolute right-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
+                          onMouseDown={(e) => handleMouseDown(e, task, 'resize-right')}
+                          title="Drag to adjust due date"
+                        />
                       </div>
-                    </button>
-                  </div>
-                  <div className="flex-1 relative p-3">
-                    <div
-                      className={`absolute top-1/2 transform -translate-y-1/2 h-8 rounded transition-all flex items-center px-2 group select-none ${
-                        draggingTask?.task.id === task.id && isDragging
-                          ? 'opacity-75 shadow-lg scale-105 cursor-grabbing'
-                          : 'cursor-grab hover:opacity-90'
-                      }`}
-                      style={{
-                        left: position.left,
-                        width: position.width,
-                        backgroundColor: task.color || '#6b7280',
-                      }}
-                      onMouseDown={(e) => handleMouseDown(e, task, 'move')}
-                      onClick={(e) => {
-                        if (!isDragging) setSelectedTask(task)
-                      }}
-                    >
-                      {/* Left resize handle */}
-                      <div
-                        className="absolute left-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
-                        onMouseDown={(e) => handleMouseDown(e, task, 'resize-left')}
-                        title="Drag to adjust start date"
-                      />
-
-                      <span className="text-xs font-medium text-white truncate pointer-events-none">{task.title}</span>
-
-                      {/* Right resize handle */}
-                      <div
-                        className="absolute right-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
-                        onMouseDown={(e) => handleMouseDown(e, task, 'resize-right')}
-                        title="Drag to adjust due date"
-                      />
                     </div>
                   </div>
-                </div>
-              )
-            })
+                )
+              })}
+            </div>
           )}
         </div>
       </div>
