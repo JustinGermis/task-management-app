@@ -162,6 +162,14 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     }
   }
 
+  // Calculate timeline first to use in filtering
+  const { days, startDate, endDate } = useMemo(() => {
+    const start = startOfMonth(currentMonth)
+    const end = endOfMonth(currentMonth)
+    const days = eachDayOfInterval({ start, end })
+    return { days, startDate: start, endDate: end }
+  }, [currentMonth])
+
   // Filter tasks - remove sections first, then apply other filters
   const filteredTasks = useMemo(() => {
     let filtered = getRegularTasks(tasks)
@@ -192,19 +200,24 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
       })
     }
 
-    // Only show tasks with dates
-    filtered = filtered.filter(task => task.start_date || task.due_date)
+    // Only show tasks with dates that overlap with the current month view
+    filtered = filtered.filter(task => {
+      if (!task.start_date && !task.due_date) return false
+
+      const taskStart = task.start_date ? startOfDay(parseISO(task.start_date)) : null
+      const taskEnd = task.due_date ? startOfDay(parseISO(task.due_date)) : null
+
+      const actualStart = taskStart || taskEnd!
+      const actualEnd = taskEnd || taskStart!
+
+      // Check if task overlaps with current month
+      return isWithinInterval(actualStart, { start: startDate, end: endDate }) ||
+             isWithinInterval(actualEnd, { start: startDate, end: endDate }) ||
+             (actualStart < startDate && actualEnd > endDate)
+    })
 
     return filtered
-  }, [tasks, searchQuery, selectedAssigneeId, currentUser])
-
-  // Calculate timeline
-  const { days, startDate, endDate } = useMemo(() => {
-    const start = startOfMonth(currentMonth)
-    const end = endOfMonth(currentMonth)
-    const days = eachDayOfInterval({ start, end })
-    return { days, startDate: start, endDate: end }
-  }, [currentMonth])
+  }, [tasks, searchQuery, selectedAssigneeId, currentUser, startDate, endDate])
 
   const getTaskPosition = (task: TaskWithDetails) => {
     const taskStart = task.start_date ? startOfDay(parseISO(task.start_date)) : null
@@ -215,8 +228,12 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     const actualStart = taskStart || taskEnd!
     const actualEnd = taskEnd || taskStart!
 
-    const startOffset = differenceInDays(actualStart, startDate)
-    const duration = Math.max(1, differenceInDays(actualEnd, actualStart) + 1)
+    // Clamp to visible month range
+    const visibleStart = actualStart < startDate ? startDate : actualStart
+    const visibleEnd = actualEnd > endDate ? endDate : actualEnd
+
+    const startOffset = differenceInDays(visibleStart, startDate)
+    const duration = Math.max(1, differenceInDays(visibleEnd, visibleStart) + 1)
 
     const dayWidth = 100 / days.length
 
