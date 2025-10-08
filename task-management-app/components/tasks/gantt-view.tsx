@@ -40,8 +40,10 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('all')
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [draggingTask, setDraggingTask] = useState<{ task: TaskWithDetails; mode: 'move' | 'resize-left' | 'resize-right' } | null>(null)
+  const [draggingTask, setDraggingTask] = useState<{ task: TaskWithDetails; mode: 'move' | 'resize-left' | 'resize-right'; originalStart: Date | null; originalEnd: Date | null } | null>(null)
   const [dragStartX, setDragStartX] = useState(0)
+  const [dragOffset, setDragOffset] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => {
     loadProjects()
@@ -221,14 +223,37 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     return filtered
   }, [tasks, searchQuery, selectedAssigneeId, currentUser, startDate, endDate])
 
-  const getTaskPosition = (task: TaskWithDetails) => {
+  const getTaskPosition = (task: TaskWithDetails, applyDragOffset = false) => {
     const taskStart = task.start_date ? startOfDay(parseISO(task.start_date)) : null
     const taskEnd = task.due_date ? startOfDay(parseISO(task.due_date)) : null
 
     if (!taskStart && !taskEnd) return null
 
-    const actualStart = taskStart || taskEnd!
-    const actualEnd = taskEnd || taskStart!
+    let actualStart = taskStart || taskEnd!
+    let actualEnd = taskEnd || taskStart!
+
+    // Apply drag offset for visual preview
+    if (applyDragOffset && draggingTask && draggingTask.task.id === task.id && dragOffset !== 0) {
+      const dayWidth = 100 / days.length
+      const pixelWidth = (typeof window !== 'undefined' && document.querySelector('.gantt-timeline')?.clientWidth) || 1000
+      const actualDayWidth = pixelWidth / days.length
+      const daysDelta = Math.round(dragOffset / actualDayWidth)
+
+      if (draggingTask.mode === 'move') {
+        if (actualStart) actualStart = addDays(actualStart, daysDelta)
+        if (actualEnd) actualEnd = addDays(actualEnd, daysDelta)
+      } else if (draggingTask.mode === 'resize-left') {
+        if (actualStart) {
+          const newStart = addDays(actualStart, daysDelta)
+          if (actualEnd && newStart <= actualEnd) actualStart = newStart
+        }
+      } else if (draggingTask.mode === 'resize-right') {
+        if (actualEnd) {
+          const newEnd = addDays(actualEnd, daysDelta)
+          if (actualStart && newEnd >= actualStart) actualEnd = newEnd
+        }
+      }
+    }
 
     // Clamp to visible month range
     const visibleStart = actualStart < startDate ? startDate : actualStart
@@ -258,60 +283,92 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
 
   const handleMouseDown = (e: React.MouseEvent, task: TaskWithDetails, mode: 'move' | 'resize-left' | 'resize-right') => {
     e.stopPropagation()
-    setDraggingTask({ task, mode })
+    const taskStart = task.start_date ? parseISO(task.start_date) : null
+    const taskEnd = task.due_date ? parseISO(task.due_date) : null
+
+    setDraggingTask({
+      task,
+      mode,
+      originalStart: taskStart,
+      originalEnd: taskEnd
+    })
     setDragStartX(e.clientX)
+    setDragOffset(0)
+    setIsDragging(false)
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!draggingTask) return
 
     const deltaX = e.clientX - dragStartX
-    const dayWidth = (e.currentTarget as HTMLElement).offsetWidth / days.length
-    const daysDelta = Math.round(deltaX / dayWidth)
 
-    if (daysDelta === 0) return
+    // Mark as dragging if moved more than 5px
+    if (Math.abs(deltaX) > 5 && !isDragging) {
+      setIsDragging(true)
+    }
 
-    const taskStart = draggingTask.task.start_date ? parseISO(draggingTask.task.start_date) : null
-    const taskEnd = draggingTask.task.due_date ? parseISO(draggingTask.task.due_date) : null
+    setDragOffset(deltaX)
+  }
 
-    let newStart = taskStart
-    let newEnd = taskEnd
+  const handleMouseUp = async () => {
+    if (!draggingTask || !isDragging) {
+      setDraggingTask(null)
+      setDragOffset(0)
+      setIsDragging(false)
+      return
+    }
+
+    const dayWidth = document.querySelector('.gantt-timeline')?.clientWidth ?? 0
+    const actualDayWidth = dayWidth / days.length
+    const daysDelta = Math.round(dragOffset / actualDayWidth)
+
+    if (daysDelta === 0) {
+      setDraggingTask(null)
+      setDragOffset(0)
+      setIsDragging(false)
+      return
+    }
+
+    let newStart = draggingTask.originalStart
+    let newEnd = draggingTask.originalEnd
 
     if (draggingTask.mode === 'move') {
       // Move both dates
-      if (taskStart) newStart = addDays(taskStart, daysDelta)
-      if (taskEnd) newEnd = addDays(taskEnd, daysDelta)
+      if (draggingTask.originalStart) newStart = addDays(draggingTask.originalStart, daysDelta)
+      if (draggingTask.originalEnd) newEnd = addDays(draggingTask.originalEnd, daysDelta)
     } else if (draggingTask.mode === 'resize-left') {
       // Resize start date
-      if (taskStart) {
-        newStart = addDays(taskStart, daysDelta)
+      if (draggingTask.originalStart) {
+        newStart = addDays(draggingTask.originalStart, daysDelta)
         // Ensure start is before end
-        if (taskEnd && newStart > taskEnd) newStart = taskEnd
+        if (draggingTask.originalEnd && newStart > draggingTask.originalEnd) newStart = draggingTask.originalEnd
       }
     } else if (draggingTask.mode === 'resize-right') {
       // Resize end date
-      if (taskEnd) {
-        newEnd = addDays(taskEnd, daysDelta)
+      if (draggingTask.originalEnd) {
+        newEnd = addDays(draggingTask.originalEnd, daysDelta)
         // Ensure end is after start
-        if (taskStart && newEnd < taskStart) newEnd = taskStart
+        if (draggingTask.originalStart && newEnd < draggingTask.originalStart) newEnd = draggingTask.originalStart
       }
     }
 
-    // Update the task
+    // Update the task in database
     const updates: any = {}
     if (newStart) updates.start_date = format(newStart, 'yyyy-MM-dd')
     if (newEnd) updates.due_date = format(newEnd, 'yyyy-MM-dd')
 
     if (Object.keys(updates).length > 0) {
-      updateTask(draggingTask.task.id, updates).then((updatedTask) => {
+      try {
+        const updatedTask = await updateTask(draggingTask.task.id, updates)
         handleTaskUpdated(updatedTask)
-        setDragStartX(e.clientX)
-      })
+      } catch (error) {
+        console.error('Failed to update task:', error)
+      }
     }
-  }
 
-  const handleMouseUp = () => {
     setDraggingTask(null)
+    setDragOffset(0)
+    setIsDragging(false)
   }
 
   return (
@@ -420,7 +477,7 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
 
         {/* Task Rows */}
         <div
-          className="max-h-[600px] overflow-y-auto"
+          className="max-h-[600px] overflow-y-auto gantt-timeline"
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
@@ -433,7 +490,7 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
             </div>
           ) : (
             filteredTasks.map((task) => {
-              const position = getTaskPosition(task)
+              const position = getTaskPosition(task, true)
               if (!position) return null
 
               return (
@@ -459,7 +516,11 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
                   </div>
                   <div className="flex-1 relative p-3">
                     <div
-                      className="absolute top-1/2 transform -translate-y-1/2 h-8 rounded cursor-move hover:opacity-90 transition-opacity flex items-center px-2 group select-none"
+                      className={`absolute top-1/2 transform -translate-y-1/2 h-8 rounded transition-all flex items-center px-2 group select-none ${
+                        draggingTask?.task.id === task.id && isDragging
+                          ? 'opacity-75 shadow-lg scale-105 cursor-grabbing'
+                          : 'cursor-grab hover:opacity-90'
+                      }`}
                       style={{
                         left: position.left,
                         width: position.width,
@@ -467,13 +528,14 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
                       }}
                       onMouseDown={(e) => handleMouseDown(e, task, 'move')}
                       onClick={(e) => {
-                        if (!draggingTask) setSelectedTask(task)
+                        if (!isDragging) setSelectedTask(task)
                       }}
                     >
                       {/* Left resize handle */}
                       <div
                         className="absolute left-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
                         onMouseDown={(e) => handleMouseDown(e, task, 'resize-left')}
+                        title="Drag to adjust start date"
                       />
 
                       <span className="text-xs font-medium text-white truncate pointer-events-none">{task.title}</span>
@@ -482,6 +544,7 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
                       <div
                         className="absolute right-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
                         onMouseDown={(e) => handleMouseDown(e, task, 'resize-right')}
+                        title="Drag to adjust due date"
                       />
                     </div>
                   </div>
