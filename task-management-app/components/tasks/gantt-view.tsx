@@ -348,23 +348,38 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
       }
     }
 
-    // Update the task in database
-    const updates: any = {}
-    if (newStart) updates.start_date = format(newStart, 'yyyy-MM-dd')
-    if (newEnd) updates.due_date = format(newEnd, 'yyyy-MM-dd')
+    const taskId = draggingTask.task.id
 
-    if (Object.keys(updates).length > 0) {
-      try {
-        const updatedTask = await updateTask(draggingTask.task.id, updates)
-        handleTaskUpdated(updatedTask)
-      } catch (error) {
-        console.error('Failed to update task:', error)
-      }
+    // Optimistically update UI immediately
+    const optimisticUpdates: any = {}
+    if (newStart) optimisticUpdates.start_date = format(newStart, 'yyyy-MM-dd')
+    if (newEnd) optimisticUpdates.due_date = format(newEnd, 'yyyy-MM-dd')
+
+    if (Object.keys(optimisticUpdates).length > 0) {
+      // Update local state immediately for instant feedback
+      setTasks(prev => prev.map(t =>
+        t.id === taskId
+          ? { ...t, ...optimisticUpdates }
+          : t
+      ))
     }
 
+    // Reset drag state immediately for instant release
     setDraggingTask(null)
     setDragOffset(0)
     setIsDragging(false)
+
+    // Update database in background
+    if (Object.keys(optimisticUpdates).length > 0) {
+      try {
+        const updatedTask = await updateTask(taskId, optimisticUpdates)
+        handleTaskUpdated(updatedTask)
+      } catch (error) {
+        console.error('Failed to update task:', error)
+        // Revert optimistic update on error
+        loadTasks()
+      }
+    }
   }
 
   return (
