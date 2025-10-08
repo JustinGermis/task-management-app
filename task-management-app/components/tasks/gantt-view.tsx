@@ -43,6 +43,7 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
   const [dragStartX, setDragStartX] = useState(0)
   const [dragOffset, setDragOffset] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [justDragged, setJustDragged] = useState(false)
 
   useEffect(() => {
     loadProjects()
@@ -165,11 +166,40 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     }
   }
 
-  // Calculate timeline - show 6 months (2 before current, current, 3 after)
+  // Calculate timeline - show range that includes all tasks, or default to current +/- months
   const { days, startDate, endDate, monthGroups } = useMemo(() => {
-    const now = new Date()
-    const start = startOfMonth(subMonths(now, 2))
-    const end = endOfMonth(addMonths(now, 3))
+    const regularTasks = getRegularTasks(tasks).filter(t => t.start_date || t.due_date)
+
+    let start: Date
+    let end: Date
+
+    if (regularTasks.length > 0) {
+      // Find earliest and latest dates among tasks
+      const dates = regularTasks.flatMap(t => [
+        t.start_date ? parseISO(t.start_date) : null,
+        t.due_date ? parseISO(t.due_date) : null
+      ]).filter(d => d !== null) as Date[]
+
+      if (dates.length > 0) {
+        const minDate = new Date(Math.min(...dates.map(d => d.getTime())))
+        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())))
+
+        // Add 1 month buffer on each side
+        start = startOfMonth(subMonths(minDate, 1))
+        end = endOfMonth(addMonths(maxDate, 1))
+      } else {
+        // Fallback to current range
+        const now = new Date()
+        start = startOfMonth(subMonths(now, 2))
+        end = endOfMonth(addMonths(now, 3))
+      }
+    } else {
+      // No tasks with dates, show current range
+      const now = new Date()
+      start = startOfMonth(subMonths(now, 2))
+      end = endOfMonth(addMonths(now, 3))
+    }
+
     const days = eachDayOfInterval({ start, end })
 
     // Group days by month for headers
@@ -185,7 +215,7 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     })
 
     return { days, startDate: start, endDate: end, monthGroups }
-  }, [])
+  }, [tasks])
 
   // Filter tasks - remove sections first, then apply other filters
   const filteredTasks = useMemo(() => {
@@ -369,6 +399,10 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
     setDragOffset(0)
     setIsDragging(false)
 
+    // Set flag to prevent click event from opening dialog
+    setJustDragged(true)
+    setTimeout(() => setJustDragged(false), 100)
+
     // Update database in background
     if (Object.keys(optimisticUpdates).length > 0) {
       try {
@@ -537,11 +571,11 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
                         style={{
                           left: position.left,
                           width: position.width,
-                          backgroundColor: task.color || task.project?.color || '#6366f1',
+                          backgroundColor: task.project?.color || task.color || '#6366f1',
                         }}
                         onMouseDown={(e) => handleMouseDown(e, task, 'move')}
                         onClick={(e) => {
-                          if (!isDragging) setSelectedTask(task)
+                          if (!isDragging && !justDragged) setSelectedTask(task)
                         }}
                       >
                         {/* Left resize handle */}
