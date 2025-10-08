@@ -452,13 +452,14 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
       </div>
 
       {/* Gantt Chart */}
-      <div className="border rounded-lg overflow-hidden bg-card">
-        {/* Timeline Header - Month groups */}
-        <div className="border-b bg-muted/50">
-          <div className="flex">
-            <div className="w-64 p-3 border-r font-semibold text-sm sticky left-0 bg-muted/50 z-10">Task</div>
-            <div className="overflow-x-auto">
-              <div className="flex">
+      <div className="border rounded-lg bg-card flex flex-col">
+        {/* Task Rows with integrated header */}
+        <div className="max-h-[600px] overflow-auto gantt-timeline">
+          {/* Timeline Header - Month groups */}
+          <div className="sticky top-0 z-20 border-b bg-muted/50">
+            <div className="flex">
+              <div className="w-64 p-3 border-r font-semibold text-sm sticky left-0 bg-muted/50 z-30">Task</div>
+              <div className="flex" style={{ minWidth: `${days.length * 40}px` }}>
                 {monthGroups.map((monthGroup, monthIndex) => (
                   <div key={monthIndex} className="border-r last:border-r-0">
                     <div className="p-2 text-center font-semibold text-sm border-b bg-muted">
@@ -481,10 +482,8 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Task Rows */}
-        <div className="max-h-[600px] overflow-auto gantt-timeline">
+          {/* Task Rows */}
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Loading tasks...</div>
           ) : filteredTasks.length === 0 ? (
@@ -508,7 +507,13 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
                         onClick={() => setSelectedTask(task)}
                         className="text-left w-full hover:text-primary transition-colors"
                       >
-                        <div className="font-medium text-sm truncate">{task.title}</div>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: task.project?.color || task.color || '#6b7280' }}
+                          />
+                          <div className="font-medium text-sm truncate">{task.title}</div>
+                        </div>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="secondary" className={`${getStatusColor(task.status)} text-xs`}>
                             {TASK_STATUSES.find(s => s.id === task.status)?.label}
@@ -522,17 +527,17 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
                         </div>
                       </button>
                     </div>
-                    <div className="relative p-3" style={{ minWidth: `${days.length * 40}px` }}>
+                    <div className="relative" style={{ minWidth: `${days.length * 40}px`, height: '60px' }}>
                       <div
-                        className={`absolute top-1/2 transform -translate-y-1/2 h-8 rounded transition-all flex items-center px-2 group select-none ${
+                        className={`absolute top-1/2 transform -translate-y-1/2 h-10 rounded-lg transition-all flex items-center px-3 group select-none shadow-sm ${
                           draggingTask?.task.id === task.id && isDragging
                             ? 'opacity-75 shadow-lg scale-105 cursor-grabbing'
-                            : 'cursor-grab hover:opacity-90'
+                            : 'cursor-grab hover:shadow-md'
                         }`}
                         style={{
                           left: position.left,
                           width: position.width,
-                          backgroundColor: task.color || '#6b7280',
+                          backgroundColor: task.color || task.project?.color || '#6366f1',
                         }}
                         onMouseDown={(e) => handleMouseDown(e, task, 'move')}
                         onClick={(e) => {
@@ -541,16 +546,16 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
                       >
                         {/* Left resize handle */}
                         <div
-                          className="absolute left-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
+                          className="absolute left-0 top-0 bottom-0 w-3 bg-black/10 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/20 rounded-l-lg"
                           onMouseDown={(e) => handleMouseDown(e, task, 'resize-left')}
                           title="Drag to adjust start date"
                         />
 
-                        <span className="text-xs font-medium text-white truncate pointer-events-none">{task.title}</span>
+                        <span className="text-sm font-semibold text-white truncate pointer-events-none drop-shadow-sm">{task.title}</span>
 
                         {/* Right resize handle */}
                         <div
-                          className="absolute right-0 top-0 bottom-0 w-2 bg-white/30 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/50"
+                          className="absolute right-0 top-0 bottom-0 w-3 bg-black/10 cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/20 rounded-r-lg"
                           onMouseDown={(e) => handleMouseDown(e, task, 'resize-right')}
                           title="Drag to adjust due date"
                         />
