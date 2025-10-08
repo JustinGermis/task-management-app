@@ -1,10 +1,8 @@
 'use client'
 
 import { CalendarIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { format } from 'date-fns'
 
 interface DateInputProps {
   value?: string // yyyy-MM-dd format
@@ -21,29 +19,16 @@ export function DateInput({
   disabled = false,
   className
 }: DateInputProps) {
-  const displayValue = value ? format(new Date(value), 'PPP') : placeholder
-
   return (
     <div className="relative">
-      <Button
-        type="button"
-        variant="outline"
-        className={cn(
-          "w-[180px] justify-start text-left font-normal",
-          !value && "text-muted-foreground",
-          className
-        )}
-        disabled={disabled}
-      >
-        <CalendarIcon className="mr-2 h-4 w-4" />
-        <span>{displayValue}</span>
-      </Button>
+      <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
       <Input
         type="date"
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="absolute inset-0 opacity-0 cursor-pointer"
+        placeholder={placeholder}
+        className={cn("pl-9 w-[180px]", className)}
       />
     </div>
   )
