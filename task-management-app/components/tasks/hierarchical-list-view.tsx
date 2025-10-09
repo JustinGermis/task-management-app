@@ -509,7 +509,7 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
     }
 
     try {
-      const data = await getTasks(effectiveProjectId)
+      const data = await getTasks(effectiveProjectId === 'all' ? undefined : effectiveProjectId)
       setTasks(data)
       cache.set(cacheKey, data)
     } catch (error) {
