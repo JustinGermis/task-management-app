@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -9,7 +10,8 @@ import {
   User,
   Settings,
   LogOut,
-  Plus,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -50,6 +52,22 @@ const navigation = [
 export function Sidebar({ user, className }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // Load collapsed state from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar-collapsed')
+    if (saved !== null) {
+      setIsCollapsed(saved === 'true')
+    }
+  }, [])
+
+  // Save collapsed state to localStorage
+  const toggleCollapse = () => {
+    const newState = !isCollapsed
+    setIsCollapsed(newState)
+    localStorage.setItem('sidebar-collapsed', String(newState))
+  }
 
   const handleSignOut = async () => {
     await signOut()
@@ -62,18 +80,39 @@ export function Sidebar({ user, className }: SidebarProps) {
     : user.email.charAt(0).toUpperCase()
 
   return (
-    <div className={cn('flex h-full w-64 flex-col bg-card border-r', className)}>
+    <div className={cn(
+      'flex h-full flex-col bg-card border-r transition-all duration-300 ease-in-out',
+      isCollapsed ? 'w-16' : 'w-64',
+      className
+    )}>
       {/* Header */}
-      <div className="flex h-16 items-center px-6 border-b">
-        <Link href="/dashboard" className="flex items-center space-x-2">
-          <div className="h-8 w-8 bg-gradient-to-br from-primary to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
+      <div className="flex h-16 items-center border-b px-3 justify-between">
+        <Link href="/dashboard" className="flex items-center space-x-2 overflow-hidden">
+          <div className="h-8 w-8 bg-gradient-to-br from-primary to-blue-600 rounded-lg flex items-center justify-center shadow-sm shrink-0">
             <div className="relative">
               <CheckSquare className="h-4 w-4 text-primary-foreground" />
               <div className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-emerald-400 rounded-full"></div>
             </div>
           </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">TaskFlow</span>
+          {!isCollapsed && (
+            <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent whitespace-nowrap">
+              TaskFlow
+            </span>
+          )}
         </Link>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleCollapse}
+          className="h-8 w-8 shrink-0"
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
       </div>
 
       {/* Navigation */}
@@ -85,68 +124,48 @@ export function Sidebar({ user, className }: SidebarProps) {
               key={item.name}
               href={item.href}
               prefetch={true}
+              title={isCollapsed ? item.name : undefined}
               className={cn(
-                'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                isCollapsed ? 'justify-center' : 'space-x-3',
                 isActive
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
-              <item.icon className="h-5 w-5" />
-              <span>{item.name}</span>
+              <item.icon className="h-5 w-5 shrink-0" />
+              {!isCollapsed && <span>{item.name}</span>}
             </Link>
           )
         })}
-        
-        {/* Quick Actions */}
-        <div className="pt-4 mt-4 border-t">
-          <div className="px-3 mb-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Quick Actions
-            </h3>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start flex items-center"
-            asChild
-          >
-            <Link href="/projects/new" className="flex items-center">
-              <Plus className="h-4 w-4 mr-2 shrink-0" />
-              <span>New Project</span>
-            </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start flex items-center"
-            asChild
-          >
-            <Link href="/tasks/new" className="flex items-center">
-              <Plus className="h-4 w-4 mr-2 shrink-0" />
-              <span>New Task</span>
-            </Link>
-          </Button>
-        </div>
       </nav>
 
       {/* User Profile */}
       <div className="border-t p-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="w-full justify-start h-auto p-2">
-              <Avatar className="h-8 w-8 mr-3">
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full h-auto p-2",
+                isCollapsed ? 'justify-center' : 'justify-start'
+              )}
+              title={isCollapsed ? user.full_name || user.email : undefined}
+            >
+              <Avatar className={cn("h-8 w-8", !isCollapsed && "mr-3")}>
                 <AvatarImage src={user.avatar_url || undefined} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
-              <div className="flex-1 text-left">
-                <div className="text-sm font-medium truncate">
-                  {user.full_name || 'User'}
+              {!isCollapsed && (
+                <div className="flex-1 text-left overflow-hidden">
+                  <div className="text-sm font-medium truncate">
+                    {user.full_name || 'User'}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {user.email}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {user.email}
-                </div>
-              </div>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
