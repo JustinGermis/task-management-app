@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ import {
   resendInvitation,
   deleteUserCompletely,
   updateMemberRole,
+  updateMemberProfile,
 } from '@/lib/api/simple-api'
 import { InviteDialog } from '@/components/team/invite-dialog'
 import { useDataCache } from '@/lib/contexts/data-cache-context'
@@ -72,6 +74,12 @@ export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSett
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
   const [editingRole, setEditingRole] = useState<string>('')
+  const [editingFullName, setEditingFullName] = useState<string>('')
+  const [editingEmail, setEditingEmail] = useState<string>('')
+  const [editingJobTitle, setEditingJobTitle] = useState<string>('')
+  const [editingDepartment, setEditingDepartment] = useState<string>('')
+  const [editingPhone, setEditingPhone] = useState<string>('')
+  const [editingBio, setEditingBio] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -133,6 +141,12 @@ export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSett
 
     setEditingMember(member)
     setEditingRole(member.role)
+    setEditingFullName(member.user?.full_name || '')
+    setEditingEmail(member.user?.email || '')
+    setEditingJobTitle((member.user as any)?.job_title || '')
+    setEditingDepartment((member.user as any)?.department || '')
+    setEditingPhone((member.user as any)?.phone || '')
+    setEditingBio((member.user as any)?.bio || '')
     setShowEditDialog(true)
   }
 
@@ -142,16 +156,36 @@ export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSett
     setIsSaving(true)
 
     try {
+      // Update role in organization_members table
       await updateMemberRole(editingMember.id, editingRole)
+
+      // Update profile fields in profiles table
+      await updateMemberProfile(editingMember.user_id, {
+        full_name: editingFullName || null,
+        email: editingEmail,
+        job_title: editingJobTitle || null,
+        department: editingDepartment || null,
+        phone: editingPhone || null,
+        bio: editingBio || null,
+      })
 
       // Update local state
       setMembers(members.map(m =>
         m.id === editingMember.id
-          ? { ...m, role: editingRole as TeamMember['role'] }
+          ? {
+              ...m,
+              role: editingRole as TeamMember['role'],
+              user: m.user ? {
+                ...m.user,
+                full_name: editingFullName || undefined,
+                email: editingEmail,
+              } : undefined
+            }
           : m
       ))
 
       cache.invalidate(`settings:members:${organizationId}`)
+      cache.invalidate(`settings:profile`)
       setShowEditDialog(false)
       setEditingMember(null)
     } catch (error) {
@@ -439,28 +473,97 @@ export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSett
       />
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Team Member</DialogTitle>
             <DialogDescription>
-              Update {editingMember?.user?.full_name || editingMember?.user?.email}'s role
+              Update {editingMember?.user?.full_name || editingMember?.user?.email}'s profile and role
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  value={editingFullName}
+                  onChange={(e) => setEditingFullName(e.target.value)}
+                  placeholder="Enter full name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={editingEmail}
+                  onChange={(e) => setEditingEmail(e.target.value)}
+                  placeholder="Enter email address"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="jobTitle">Job Title</Label>
+                <Input
+                  id="jobTitle"
+                  value={editingJobTitle}
+                  onChange={(e) => setEditingJobTitle(e.target.value)}
+                  placeholder="e.g. Senior Developer"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Input
+                  id="department"
+                  value={editingDepartment}
+                  onChange={(e) => setEditingDepartment(e.target.value)}
+                  placeholder="e.g. Engineering"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={editingPhone}
+                  onChange={(e) => setEditingPhone(e.target.value)}
+                  placeholder="e.g. +1 (555) 123-4567"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select value={editingRole} onValueChange={setEditingRole}>
+                  <SelectTrigger id="role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin - Full access</SelectItem>
+                    <SelectItem value="manager">Manager - Manage projects and tasks</SelectItem>
+                    <SelectItem value="member">Member - Create and edit tasks</SelectItem>
+                    <SelectItem value="guest">Guest - View only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select value={editingRole} onValueChange={setEditingRole}>
-                <SelectTrigger id="role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin - Full access</SelectItem>
-                  <SelectItem value="manager">Manager - Manage projects and tasks</SelectItem>
-                  <SelectItem value="member">Member - Create and edit tasks</SelectItem>
-                  <SelectItem value="guest">Guest - View only</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="bio">Bio</Label>
+              <Textarea
+                id="bio"
+                value={editingBio}
+                onChange={(e) => setEditingBio(e.target.value)}
+                placeholder="Brief bio or description..."
+                rows={3}
+              />
             </div>
           </div>
 

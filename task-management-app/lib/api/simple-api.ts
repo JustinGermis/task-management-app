@@ -718,7 +718,7 @@ export async function getCurrentUserProfile() {
 export async function updateUserProfile(updates: any) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   if (!user) throw new Error('Not authenticated')
 
   try {
@@ -733,6 +733,25 @@ export async function updateUserProfile(updates: any) {
     return profile
   } catch (error) {
     console.error('Failed to update profile:', error)
+    throw error
+  }
+}
+
+export async function updateMemberProfile(userId: string, updates: any) {
+  const supabase = createClient()
+
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return profile
+  } catch (error) {
+    console.error('Failed to update member profile:', error)
     throw error
   }
 }
