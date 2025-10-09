@@ -19,6 +19,7 @@ export function SettingsContent() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [organizations, setOrganizations] = useState<any[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export function SettingsContent() {
         cachedOrgs && !cache.isStale(CACHE_KEYS.ORGANIZATIONS)) {
       setCurrentUser(cachedProfile)
       setOrganizations(cachedOrgs)
+      setIsSuperAdmin(cachedProfile.is_super_admin || false)
       if (cachedOrgs.length > 0) {
         await checkAdminRole(cachedOrgs[0].id, cachedProfile.id)
       }
@@ -49,6 +51,7 @@ export function SettingsContent() {
 
       setCurrentUser(profile)
       setOrganizations(orgs)
+      setIsSuperAdmin(profile.is_super_admin || false)
       cache.set(CACHE_KEYS.PROFILE, profile)
       cache.set(CACHE_KEYS.ORGANIZATIONS, orgs)
 
@@ -120,6 +123,7 @@ export function SettingsContent() {
           <TeamSettings
             organizationId={organizations[0]?.id}
             isAdmin={isAdmin}
+            isSuperAdmin={isSuperAdmin}
           />
         </TabsContent>
       </Tabs>

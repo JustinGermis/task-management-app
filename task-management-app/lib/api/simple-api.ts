@@ -1215,7 +1215,7 @@ export async function updateMemberRole(memberId: string, newRole: string) {
 
 export async function removeMember(memberId: string) {
   const supabase = createClient()
-  
+
   try {
     const { error } = await supabase
       .from('organization_members')
@@ -1225,6 +1225,20 @@ export async function removeMember(memberId: string) {
     if (error) throw error
   } catch (error) {
     console.error('Failed to remove member:', error)
+    throw error
+  }
+}
+
+export async function deleteUserCompletely(userId: string) {
+  const supabase = createClient()
+
+  try {
+    // Call database function to delete user completely
+    const { error } = await supabase.rpc('delete_user_completely', { user_id_to_delete: userId })
+
+    if (error) throw error
+  } catch (error) {
+    console.error('Failed to delete user:', error)
     throw error
   }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Mail, Shield, UserX, Search } from 'lucide-react'
+import { Plus, Mail, Shield, UserX, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -18,9 +18,14 @@ import {
 import {
   getOrganizationMembers,
   removeMember,
+  getInvitations,
+  cancelInvitation,
+  resendInvitation,
+  deleteUserCompletely,
 } from '@/lib/api/simple-api'
 import { InviteDialog } from '@/components/team/invite-dialog'
 import { useDataCache } from '@/lib/contexts/data-cache-context'
+import { formatRelativeTime } from '@/lib/utils'
 
 interface TeamMember {
   id: string
@@ -38,11 +43,13 @@ interface TeamMember {
 interface TeamSettingsProps {
   organizationId?: string
   isAdmin: boolean
+  isSuperAdmin: boolean
 }
 
-export function TeamSettings({ organizationId, isAdmin }: TeamSettingsProps) {
+export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSettingsProps) {
   const cache = useDataCache()
   const [members, setMembers] = useState<TeamMember[]>([])
+  const [invitations, setInvitations] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -50,6 +57,7 @@ export function TeamSettings({ organizationId, isAdmin }: TeamSettingsProps) {
   useEffect(() => {
     if (organizationId) {
       loadMembers()
+      loadInvitations()
     }
   }, [organizationId])
 
@@ -76,6 +84,26 @@ export function TeamSettings({ organizationId, isAdmin }: TeamSettingsProps) {
     }
   }
 
+  const loadInvitations = async () => {
+    if (!organizationId) return
+
+    const cacheKey = `settings:invitations:${organizationId}`
+    const cached = cache.get(cacheKey)
+
+    if (cached && !cache.isStale(cacheKey)) {
+      setInvitations(cached)
+      return
+    }
+
+    try {
+      const data = await getInvitations(organizationId)
+      setInvitations(data)
+      cache.set(cacheKey, data)
+    } catch (error) {
+      console.error('Failed to load invitations:', error)
+    }
+  }
+
   const handleRemoveMember = async (memberId: string, userId: string) => {
     if (!isAdmin) {
       alert('Only administrators can remove team members')
@@ -91,6 +119,58 @@ export function TeamSettings({ organizationId, isAdmin }: TeamSettingsProps) {
     } catch (error) {
       console.error('Failed to remove member:', error)
       alert('Failed to remove member. Please try again.')
+    }
+  }
+
+  const handleCancelInvite = async (inviteId: string) => {
+    if (!isAdmin) {
+      alert('Only administrators can cancel invitations')
+      return
+    }
+
+    if (!confirm('Are you sure you want to cancel this invitation?')) return
+
+    try {
+      await cancelInvitation(inviteId)
+      setInvitations(invitations.filter(i => i.id !== inviteId))
+      cache.invalidate(`settings:invitations:${organizationId}`)
+    } catch (error) {
+      console.error('Failed to cancel invitation:', error)
+      alert('Failed to cancel invitation. Please try again.')
+    }
+  }
+
+  const handleResendInvite = async (inviteId: string) => {
+    if (!isAdmin) {
+      alert('Only administrators can resend invitations')
+      return
+    }
+
+    try {
+      await resendInvitation(inviteId)
+      alert('Invitation resent successfully')
+    } catch (error) {
+      console.error('Failed to resend invitation:', error)
+      alert('Failed to resend invitation. Please try again.')
+    }
+  }
+
+  const handleDeleteUserCompletely = async (memberId: string, userId: string, email: string) => {
+    if (!isAdmin) {
+      alert('Only administrators can delete users completely')
+      return
+    }
+
+    if (!confirm(`Are you sure you want to PERMANENTLY DELETE ${email} from the system? This will remove all their data including:\n\n- User account\n- All task assignments\n- All comments and attachments\n- All time entries\n- All activity logs\n\nThis action CANNOT be undone!`)) return
+
+    try {
+      await deleteUserCompletely(userId)
+      setMembers(members.filter(m => m.id !== memberId))
+      cache.invalidate(`settings:members:${organizationId}`)
+      alert('User deleted completely from the system')
+    } catch (error) {
+      console.error('Failed to delete user:', error)
+      alert('Failed to delete user. Please try again.')
     }
   }
 
@@ -203,21 +283,100 @@ export function TeamSettings({ organizationId, isAdmin }: TeamSettingsProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveMember(member.id, member.user_id)}
-                          disabled={!isAdmin || member.role === 'admin'}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <UserX className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMember(member.id, member.user_id)}
+                            disabled={!isAdmin}
+                            className="text-destructive hover:text-destructive"
+                            title="Remove from organization"
+                          >
+                            <UserX className="h-4 w-4" />
+                          </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteUserCompletely(member.id, member.user_id, member.user?.email || '')}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="Delete user completely (Admin only)"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
+          </div>
+        )}
+
+        {/* Pending Invitations */}
+        {invitations.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium">Pending Invitations</h3>
+            </div>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Invited</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invitations.map((invite) => (
+                    <TableRow key={invite.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{invite.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getRoleBadge(invite.role)}>
+                          {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground">
+                          {formatRelativeTime(new Date(invite.created_at))}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleResendInvite(invite.id)}
+                            disabled={!isAdmin}
+                          >
+                            Resend
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCancelInvite(invite.id)}
+                            disabled={!isAdmin}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
 
@@ -234,7 +393,7 @@ export function TeamSettings({ organizationId, isAdmin }: TeamSettingsProps) {
         organizationId={organizationId}
         onInviteSent={() => {
           setShowInviteDialog(false)
-          loadMembers()
+          loadInvitations()
         }}
       />
     </Card>
