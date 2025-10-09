@@ -80,6 +80,7 @@ export function TaskDetailsEnhanced({
   const [assignees, setAssignees] = useState<any[]>([])
   const [availableUsers, setAvailableUsers] = useState<any[]>([])
   const [isAssigneePopoverOpen, setIsAssigneePopoverOpen] = useState(false)
+  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('')
   
   // Label management
   const [labels, setLabels] = useState<any[]>([])
@@ -272,6 +273,7 @@ export function TaskDetailsEnhanced({
       const newAssignees = await getTaskAssignees(task.id)
       setAssignees(newAssignees)
       setIsAssigneePopoverOpen(false)
+      setAssigneeSearchQuery('')
     } catch (error) {
       console.error('Failed to add assignee:', error)
     }
@@ -283,6 +285,22 @@ export function TaskDetailsEnhanced({
       setAssignees(prev => prev.filter(a => a.user_id !== userId))
     } catch (error) {
       console.error('Failed to remove assignee:', error)
+    }
+  }
+
+  const handleAssigneePopoverOpenChange = async (open: boolean) => {
+    setIsAssigneePopoverOpen(open)
+    if (open) {
+      // Reload available users when opening popover to catch any team changes
+      try {
+        const users = await getAvailableAssignees(task.project_id)
+        setAvailableUsers(users)
+      } catch (error) {
+        console.error('Failed to reload available users:', error)
+      }
+    } else {
+      // Clear search when closing
+      setAssigneeSearchQuery('')
     }
   }
 
@@ -334,7 +352,18 @@ export function TaskDetailsEnhanced({
   const isOverdue = dueDate && new Date(dueDate) < new Date()
   const assignedUserIds = assignees.map(a => a.user_id)
   const assignedLabelIds = labels.map(l => l.label_id)
-  const availableUsersToAdd = availableUsers.filter(u => !assignedUserIds.includes(u.id))
+
+  // Filter available users by search query
+  const availableUsersToAdd = availableUsers
+    .filter(u => !assignedUserIds.includes(u.id))
+    .filter(u => {
+      if (!assigneeSearchQuery.trim()) return true
+      const query = assigneeSearchQuery.toLowerCase()
+      const fullName = u.full_name?.toLowerCase() || ''
+      const email = u.email.toLowerCase()
+      return fullName.includes(query) || email.includes(query)
+    })
+
   const availableLabelsToAdd = projectLabels.filter(l => !assignedLabelIds.includes(l.id))
   
   const comments = [...(currentTask.comments || []), ...realtimeComments].sort((a, b) => 
@@ -483,7 +512,7 @@ export function TaskDetailsEnhanced({
                 )
               })}
               
-              <Popover open={isAssigneePopoverOpen} onOpenChange={setIsAssigneePopoverOpen}>
+              <Popover open={isAssigneePopoverOpen} onOpenChange={handleAssigneePopoverOpenChange}>
                 <PopoverTrigger asChild>
                   <Button size="sm" variant="outline" className="h-7">
                     <Plus className="h-3 w-3 mr-1" />
@@ -491,33 +520,41 @@ export function TaskDetailsEnhanced({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-64 p-2">
-                  <div className="space-y-1">
-                    {availableUsersToAdd.map((user) => (
-                      <Button
-                        key={user.id}
-                        variant="ghost"
-                        className="w-full justify-start h-auto py-2"
-                        onClick={() => handleAddAssignee(user.id)}
-                      >
-                        <Avatar className="h-5 w-5 mr-2 flex-shrink-0">
-                          <AvatarImage src={user.avatar_url || undefined} />
-                          <AvatarFallback className="text-xs">
-                            {user.full_name?.charAt(0) || user.email.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col items-start text-left">
-                          <div className="text-sm">{user.full_name || user.email}</div>
-                          {user.full_name && (
-                            <div className="text-xs text-muted-foreground">{user.email}</div>
-                          )}
-                        </div>
-                      </Button>
-                    ))}
-                    {availableUsersToAdd.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-2">
-                        All team members assigned
-                      </p>
-                    )}
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Search members..."
+                      value={assigneeSearchQuery}
+                      onChange={(e) => setAssigneeSearchQuery(e.target.value)}
+                      className="h-8"
+                    />
+                    <div className="space-y-1 max-h-64 overflow-y-auto">
+                      {availableUsersToAdd.map((user) => (
+                        <Button
+                          key={user.id}
+                          variant="ghost"
+                          className="w-full justify-start h-auto py-2"
+                          onClick={() => handleAddAssignee(user.id)}
+                        >
+                          <Avatar className="h-5 w-5 mr-2 flex-shrink-0">
+                            <AvatarImage src={user.avatar_url || undefined} />
+                            <AvatarFallback className="text-xs">
+                              {user.full_name?.charAt(0) || user.email.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col items-start text-left">
+                            <div className="text-sm">{user.full_name || user.email}</div>
+                            {user.full_name && (
+                              <div className="text-xs text-muted-foreground">{user.email}</div>
+                            )}
+                          </div>
+                        </Button>
+                      ))}
+                      {availableUsersToAdd.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-2">
+                          {assigneeSearchQuery ? 'No members found' : 'All team members assigned'}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </PopoverContent>
               </Popover>
