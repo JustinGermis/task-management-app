@@ -23,9 +23,9 @@ import {
 import { DateInput } from '@/components/ui/date-input'
 import { TaskWithDetails } from '@/lib/types'
 import { TASK_STATUSES, TASK_PRIORITIES, DEFAULT_LABELS, TASK_COLORS } from '@/lib/constants'
-import { 
-  updateTask, 
-  deleteTask, 
+import {
+  updateTask,
+  deleteTask,
   createComment,
   getTaskAssignees,
   addTaskAssignee,
@@ -38,8 +38,10 @@ import {
   getAvailableAssignees,
   getTask,
   getProjects,
-  cloneTask
+  cloneTask,
+  getCurrentUserProfile
 } from '@/lib/api/simple-api'
+import { createClient } from '@/lib/supabase/client'
 import { useCommentUpdates } from '@/lib/hooks/use-realtime'
 import { formatDate, formatRelativeTime, cn } from '@/lib/utils'
 
@@ -266,6 +268,44 @@ export function TaskDetailsEnhanced({
     }
   }
 
+  // Send task assignment email
+  const sendTaskAssignmentEmail = async (assigneeUser: any) => {
+    try {
+      const supabase = createClient()
+      const currentUser = await getCurrentUserProfile()
+
+      const response = await fetch(
+        'https://aevvuzgavyuqlafflkqz.supabase.co/functions/v1/send-task-assignment-email',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify({
+            assigneeEmail: assigneeUser.email,
+            assigneeName: assigneeUser.full_name,
+            taskTitle: title,
+            taskId: task.id,
+            projectName: currentTask.project?.name,
+            assignedByName: currentUser?.full_name,
+            dueDate: dueDate,
+            priority: priority,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        console.error('Failed to send task assignment email:', await response.text())
+      } else {
+        console.log('Task assignment email sent successfully to:', assigneeUser.email)
+      }
+    } catch (error) {
+      console.error('Error sending task assignment email:', error)
+      // Don't throw - assignment was successful, email is just a notification
+    }
+  }
+
   // Assignee management
   const handleAddAssignee = async (userId: string) => {
     try {
@@ -274,6 +314,12 @@ export function TaskDetailsEnhanced({
       setAssignees(newAssignees)
       setIsAssigneePopoverOpen(false)
       setAssigneeSearchQuery('')
+
+      // Send email notification to the newly assigned user
+      const assignedUser = availableUsers.find(u => u.id === userId)
+      if (assignedUser) {
+        await sendTaskAssignmentEmail(assignedUser)
+      }
     } catch (error) {
       console.error('Failed to add assignee:', error)
     }
