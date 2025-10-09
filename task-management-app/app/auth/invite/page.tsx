@@ -54,7 +54,8 @@ function InvitePageContent() {
       // If user is logged in, sign them out and redirect to signup
       if (user) {
         await supabase.auth.signOut()
-        router.push(`/auth/signup?invite=${inviteCode}&email=${encodeURIComponent(inviteData.email)}`)
+        // Force full page reload to clear session completely
+        window.location.href = `/auth/signup?invite=${inviteCode}&email=${encodeURIComponent(inviteData.email)}`
         return
       }
 
