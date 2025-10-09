@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createProject, getOrganizations } from '@/lib/api/simple-api'
 import { OrganizationWithDetails } from '@/lib/types'
+import { useDataCache } from '@/lib/contexts/data-cache-context'
 
 const projectColors = [
   { name: 'Blue', value: '#3b82f6' },
@@ -23,6 +24,7 @@ const projectColors = [
 ]
 
 export function CreateProjectForm() {
+  const cache = useDataCache()
   const [organizations, setOrganizations] = useState<OrganizationWithDetails[]>([])
   const [formData, setFormData] = useState({
     name: '',
@@ -73,6 +75,13 @@ export function CreateProjectForm() {
 
     try {
       const project = await createProject(formData)
+
+      // Invalidate all project caches so the list refreshes
+      cache.invalidate('projects:list:all')
+      cache.invalidate(`projects:list:${formData.organization_id}`)
+      // Also invalidate the shared tasks:projects cache used by task views
+      cache.invalidate('tasks:projects')
+
       router.push('/projects')
       router.refresh()
     } catch (error) {
