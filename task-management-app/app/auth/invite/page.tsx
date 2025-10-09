@@ -36,14 +36,9 @@ function InvitePageContent() {
 
   const checkInvitationStatus = async () => {
     try {
-      // Check if user is logged in
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      setCurrentUser(user)
-
-      // Check invitation validity
+      // Check invitation validity first
       const inviteData = await checkInvitation(inviteCode!)
-      
+
       if (!inviteData) {
         setError('Invalid or expired invitation')
         setIsLoading(false)
@@ -51,11 +46,19 @@ function InvitePageContent() {
       }
 
       setInvitation(inviteData)
-      
-      // If user is logged in and email matches, auto-accept
-      if (user && user.email === inviteData.email) {
-        await handleAcceptInvitation()
+
+      // Check if user is logged in
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      // If user is logged in, sign them out and redirect to signup
+      if (user) {
+        await supabase.auth.signOut()
+        router.push(`/auth/signup?invite=${inviteCode}&email=${encodeURIComponent(inviteData.email)}`)
+        return
       }
+
+      setCurrentUser(null)
     } catch (error) {
       console.error('Failed to check invitation:', error)
       setError('Failed to verify invitation')
@@ -184,87 +187,25 @@ function InvitePageContent() {
                   </div>
                 )}
 
-                {currentUser ? (
-                  // User is logged in
-                  currentUser.email === invitation.email ? (
-                    // Email matches - can accept
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        Click below to accept this invitation and join the team.
-                      </p>
-                      <Button 
-                        className="w-full" 
-                        onClick={handleAcceptInvitation}
-                        disabled={isAccepting}
-                      >
-                        {isAccepting ? (
-                          <div className="flex items-center space-x-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>Accepting...</span>
-                          </div>
-                        ) : (
-                          <>
-                            <UserPlus className="mr-2 h-4 w-4" />
-                            Accept Invitation
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ) : (
-                    // Email doesn't match
-                    <div className="space-y-4">
-                      <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
-                        <p className="text-sm text-amber-800 dark:text-amber-200">
-                          This invitation is for {invitation.email}, but you're logged in as {currentUser.email}.
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Button 
-                          className="w-full" 
-                          variant="outline"
-                          onClick={async () => {
-                            const supabase = createClient()
-                            await supabase.auth.signOut()
-                            router.push(`/auth/login?invite=${inviteCode}`)
-                          }}
-                        >
-                          <LogIn className="mr-2 h-4 w-4" />
-                          Sign in with {invitation.email}
-                        </Button>
-                        <Button 
-                          className="w-full" 
-                          variant="ghost"
-                          asChild
-                        >
-                          <Link href="/dashboard">
-                            Go to Dashboard
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                ) : (
-                  // User is not logged in
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      You need to sign in or create an account to accept this invitation.
-                    </p>
-                    <div className="space-y-2">
-                      <Button className="w-full" asChild>
-                        <Link href={`/auth/signup?invite=${inviteCode}`}>
-                          <UserPlus className="mr-2 h-4 w-4" />
-                          Create Account
-                        </Link>
-                      </Button>
-                      <Button className="w-full" variant="outline" asChild>
-                        <Link href={`/auth/login?invite=${inviteCode}`}>
-                          <LogIn className="mr-2 h-4 w-4" />
-                          Sign In
-                        </Link>
-                      </Button>
-                    </div>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Create an account or sign in with <strong>{invitation.email}</strong> to accept this invitation.
+                  </p>
+                  <div className="space-y-2">
+                    <Button className="w-full" asChild>
+                      <Link href={`/auth/signup?invite=${inviteCode}&email=${encodeURIComponent(invitation.email)}`}>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Create Account
+                      </Link>
+                    </Button>
+                    <Button className="w-full" variant="outline" asChild>
+                      <Link href={`/auth/login?invite=${inviteCode}&email=${encodeURIComponent(invitation.email)}`}>
+                        <LogIn className="mr-2 h-4 w-4" />
+                        Sign In
+                      </Link>
+                    </Button>
                   </div>
-                )}
+                </div>
               </div>
             </>
           )}

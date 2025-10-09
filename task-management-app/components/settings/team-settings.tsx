@@ -393,6 +393,7 @@ export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSett
         organizationId={organizationId}
         onInviteSent={() => {
           setShowInviteDialog(false)
+          cache.invalidate(`settings:invitations:${organizationId}`)
           loadInvitations()
         }}
       />
