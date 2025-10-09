@@ -85,7 +85,7 @@ export function TeamSettings({ organizationId, isAdmin }: TeamSettingsProps) {
     if (!confirm('Are you sure you want to remove this member from the organization?')) return
 
     try {
-      await removeMember(organizationId!, memberId)
+      await removeMember(memberId)
       setMembers(members.filter(m => m.id !== memberId))
       cache.invalidate(`settings:members:${organizationId}`)
     } catch (error) {
