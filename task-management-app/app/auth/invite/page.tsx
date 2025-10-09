@@ -36,7 +36,22 @@ function InvitePageContent() {
 
   const checkInvitationStatus = async () => {
     try {
-      // Check invitation validity first
+      // Always sign out first to ensure clean state
+      const supabase = createClient()
+
+      // Sign out and clear all storage
+      await supabase.auth.signOut({ scope: 'global' })
+
+      // Clear all local storage and session storage
+      localStorage.clear()
+      sessionStorage.clear()
+
+      // Delete all cookies
+      document.cookie.split(';').forEach((c) => {
+        document.cookie = c.replace(/^ +/, '').replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`)
+      })
+
+      // Check invitation validity
       const inviteData = await checkInvitation(inviteCode!)
 
       if (!inviteData) {
@@ -46,24 +61,13 @@ function InvitePageContent() {
       }
 
       setInvitation(inviteData)
-
-      // Check if user is logged in
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-
-      // If user is logged in, sign them out and redirect to signup
-      if (user) {
-        await supabase.auth.signOut()
-        // Force full page reload to clear session completely
-        window.location.href = `/auth/signup?invite=${inviteCode}&email=${encodeURIComponent(inviteData.email)}`
-        return
-      }
-
       setCurrentUser(null)
+
+      // Small delay to ensure state is updated
+      setIsLoading(false)
     } catch (error) {
       console.error('Failed to check invitation:', error)
       setError('Failed to verify invitation')
-    } finally {
       setIsLoading(false)
     }
   }
