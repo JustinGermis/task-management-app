@@ -361,7 +361,7 @@ export function ProjectListView({ projectId }: ProjectListViewProps) {
     })
   }, [selectedProjectId, cache, updateTasksAndCache])
 
-  useTaskUpdates(selectedProjectId || null, handleTaskChange)
+  useTaskUpdates(selectedProjectId === 'all' ? null : (selectedProjectId || null), handleTaskChange)
 
   const loadCurrentUser = async () => {
     try {
