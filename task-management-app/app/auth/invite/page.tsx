@@ -30,28 +30,35 @@ function InvitePageContent() {
       setIsLoading(false)
       return
     }
-    
+
     checkInvitationStatus()
   }, [inviteCode])
 
   const checkInvitationStatus = async () => {
     try {
-      // Always sign out first to ensure clean state
-      const supabase = createClient()
+      // Check if we've already logged out (using a query param flag)
+      const hasLoggedOut = searchParams.get('logged_out')
 
-      // Sign out and clear all storage
-      await supabase.auth.signOut({ scope: 'global' })
+      if (!hasLoggedOut) {
+        // First visit - sign out and reload
+        const supabase = createClient()
+        await supabase.auth.signOut({ scope: 'global' })
 
-      // Clear all local storage and session storage
-      localStorage.clear()
-      sessionStorage.clear()
+        // Clear all storage
+        localStorage.clear()
+        sessionStorage.clear()
 
-      // Delete all cookies
-      document.cookie.split(';').forEach((c) => {
-        document.cookie = c.replace(/^ +/, '').replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`)
-      })
+        // Delete all cookies
+        document.cookie.split(';').forEach((c) => {
+          document.cookie = c.replace(/^ +/, '').replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`)
+        })
 
-      // Check invitation validity
+        // Reload page with flag to prevent infinite loop
+        window.location.href = `/auth/invite?code=${inviteCode}&logged_out=true`
+        return
+      }
+
+      // Second visit after logout - check invitation
       const inviteData = await checkInvitation(inviteCode!)
 
       if (!inviteData) {
@@ -62,8 +69,6 @@ function InvitePageContent() {
 
       setInvitation(inviteData)
       setCurrentUser(null)
-
-      // Small delay to ensure state is updated
       setIsLoading(false)
     } catch (error) {
       console.error('Failed to check invitation:', error)
