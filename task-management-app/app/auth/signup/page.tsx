@@ -23,12 +23,52 @@ export default function SignupPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inviteCode = searchParams.get('invite')
+  const autoLogout = searchParams.get('auto_logout')
+  const emailParam = searchParams.get('email')
 
   useEffect(() => {
-    if (inviteCode) {
-      checkInvitation()
+    const handleAutoLogout = async () => {
+      // Check if we need to auto logout
+      if (autoLogout === 'true') {
+        const loggedOut = searchParams.get('logged_out')
+
+        if (!loggedOut) {
+          // First visit - logout and reload
+          const { createClient } = await import('@/lib/supabase/client')
+          const supabase = createClient()
+
+          await supabase.auth.signOut({ scope: 'global' })
+          localStorage.clear()
+          sessionStorage.clear()
+
+          // Delete all cookies
+          document.cookie.split(';').forEach((c) => {
+            document.cookie = c.replace(/^ +/, '').replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`)
+          })
+
+          // Rebuild URL without auto_logout but with logged_out flag
+          const params = new URLSearchParams(searchParams.toString())
+          params.delete('auto_logout')
+          params.set('logged_out', 'true')
+
+          window.location.href = `/auth/signup?${params.toString()}`
+          return
+        }
+      }
+
+      // Set email from parameter if present
+      if (emailParam) {
+        setEmail(emailParam)
+      }
+
+      // Check invitation after potential logout
+      if (inviteCode) {
+        checkInvitation()
+      }
     }
-  }, [inviteCode])
+
+    handleAutoLogout()
+  }, [inviteCode, autoLogout, emailParam, searchParams])
 
   const checkInvitation = async () => {
     try {
