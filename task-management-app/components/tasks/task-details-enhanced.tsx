@@ -270,9 +270,17 @@ export function TaskDetailsEnhanced({
 
   // Send task assignment email
   const sendTaskAssignmentEmail = async (assigneeUser: any) => {
+    console.log('🔔 Attempting to send task assignment email to:', assigneeUser.email)
     try {
       const supabase = createClient()
       const currentUser = await getCurrentUserProfile()
+
+      console.log('📧 Preparing email data:', {
+        assigneeEmail: assigneeUser.email,
+        taskTitle: title,
+        taskId: task.id,
+        projectName: currentTask.project?.name,
+      })
 
       const response = await fetch(
         'https://aevvuzgavyuqlafflkqz.supabase.co/functions/v1/send-task-assignment-email',
@@ -295,13 +303,16 @@ export function TaskDetailsEnhanced({
         }
       )
 
+      console.log('📬 Email API response status:', response.status)
+
       if (!response.ok) {
-        console.error('Failed to send task assignment email:', await response.text())
+        const errorText = await response.text()
+        console.error('❌ Failed to send task assignment email:', errorText)
       } else {
-        console.log('Task assignment email sent successfully to:', assigneeUser.email)
+        console.log('✅ Task assignment email sent successfully to:', assigneeUser.email)
       }
     } catch (error) {
-      console.error('Error sending task assignment email:', error)
+      console.error('💥 Error sending task assignment email:', error)
       // Don't throw - assignment was successful, email is just a notification
     }
   }
