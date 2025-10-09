@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Mail, Shield, UserX, Search, Trash2 } from 'lucide-react'
+import { Plus, Mail, Shield, Pencil, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -16,12 +16,29 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   getOrganizationMembers,
   removeMember,
   getInvitations,
   cancelInvitation,
   resendInvitation,
   deleteUserCompletely,
+  updateMemberRole,
 } from '@/lib/api/simple-api'
 import { InviteDialog } from '@/components/team/invite-dialog'
 import { useDataCache } from '@/lib/contexts/data-cache-context'
@@ -52,7 +69,11 @@ export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSett
   const [invitations, setInvitations] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [showInviteDialog, setShowInviteDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
+  const [editingRole, setEditingRole] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (organizationId) {
@@ -104,21 +125,40 @@ export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSett
     }
   }
 
-  const handleRemoveMember = async (memberId: string, userId: string) => {
+  const handleEditMember = (member: TeamMember) => {
     if (!isAdmin) {
-      alert('Only administrators can remove team members')
+      alert('Only administrators can edit team members')
       return
     }
 
-    if (!confirm('Are you sure you want to remove this member from the organization?')) return
+    setEditingMember(member)
+    setEditingRole(member.role)
+    setShowEditDialog(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingMember || !organizationId) return
+
+    setIsSaving(true)
 
     try {
-      await removeMember(memberId)
-      setMembers(members.filter(m => m.id !== memberId))
+      await updateMemberRole(editingMember.id, editingRole)
+
+      // Update local state
+      setMembers(members.map(m =>
+        m.id === editingMember.id
+          ? { ...m, role: editingRole as TeamMember['role'] }
+          : m
+      ))
+
       cache.invalidate(`settings:members:${organizationId}`)
+      setShowEditDialog(false)
+      setEditingMember(null)
     } catch (error) {
-      console.error('Failed to remove member:', error)
-      alert('Failed to remove member. Please try again.')
+      console.error('Failed to update member:', error)
+      alert('Failed to update member. Please try again.')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -287,12 +327,11 @@ export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSett
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleRemoveMember(member.id, member.user_id)}
+                            onClick={() => handleEditMember(member)}
                             disabled={!isAdmin}
-                            className="text-destructive hover:text-destructive"
-                            title="Remove from organization"
+                            title="Edit member"
                           >
-                            <UserX className="h-4 w-4" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
                           {isAdmin && (
                             <Button
@@ -389,14 +428,56 @@ export function TeamSettings({ organizationId, isAdmin, isSuperAdmin }: TeamSett
 
       <InviteDialog
         isOpen={showInviteDialog}
-        onClose={() => setShowInviteDialog(false)}
+        onOpenChange={setShowInviteDialog}
         organizationId={organizationId}
+        organizationName=""
         onInviteSent={() => {
           setShowInviteDialog(false)
           cache.invalidate(`settings:invitations:${organizationId}`)
           loadInvitations()
         }}
       />
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Team Member</DialogTitle>
+            <DialogDescription>
+              Update {editingMember?.user?.full_name || editingMember?.user?.email}'s role
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={editingRole} onValueChange={setEditingRole}>
+                <SelectTrigger id="role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin - Full access</SelectItem>
+                  <SelectItem value="manager">Manager - Manage projects and tasks</SelectItem>
+                  <SelectItem value="member">Member - Create and edit tasks</SelectItem>
+                  <SelectItem value="guest">Guest - View only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
