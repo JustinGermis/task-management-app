@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +16,7 @@ interface KanbanColumnProps {
   onTaskClick: (task: TaskWithDetails) => void
 }
 
-export function KanbanColumn({ id, title, color, tasks, onTaskClick }: KanbanColumnProps) {
+export const KanbanColumn = memo(function KanbanColumn({ id, title, color, tasks, onTaskClick }: KanbanColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
     id,
   })
@@ -66,4 +67,4 @@ export function KanbanColumn({ id, title, color, tasks, onTaskClick }: KanbanCol
       </div>
     </div>
   )
-}
+})

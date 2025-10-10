@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Calendar, MessageCircle, Users, AlertCircle, Clock, GripVertical, Edit2 } from 'lucide-react'
@@ -15,7 +16,7 @@ interface TaskCardProps {
   onClick: () => void
 }
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+export const TaskCard = memo(function TaskCard({ task, onClick }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -184,4 +185,4 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       </CardContent>
     </Card>
   )
-}
+})
