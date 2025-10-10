@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Plus, Folder, Calendar, Users, MoreVertical, Trash2, ArrowRight, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,17 +114,6 @@ export function ProjectsList({ organizationId: initialOrgId }: { organizationId?
     } catch (error) {
       console.error('Failed to delete project:', error)
       alert('Failed to delete project. You may not have permission.')
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'planning': return 'bg-gray-500'
-      case 'active': return 'bg-green-500'
-      case 'on_hold': return 'bg-yellow-500'
-      case 'completed': return 'bg-blue-500'
-      case 'archived': return 'bg-red-500'
-      default: return 'bg-gray-500'
     }
   }
 
@@ -273,11 +261,6 @@ export function ProjectsList({ organizationId: initialOrgId }: { organizationId?
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between mb-2">
-              <Badge className={`${getStatusColor(project.status)} text-white`}>
-                {project.status}
-              </Badge>
-            </div>
             <div className="flex items-center text-sm text-muted-foreground">
               <Calendar className="mr-1 h-3 w-3" />
               Created {formatDate(project.created_at)}
