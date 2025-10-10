@@ -533,17 +533,31 @@ export function HierarchicalListView({ projectId }: HierarchicalListViewProps) {
 
   const handleTaskUpdated = (updatedTask: TaskWithDetails) => {
     console.log('[Structure] handleTaskUpdated called:', updatedTask.id, 'status:', updatedTask.status)
-    updateTasksAndCache(prev => {
-      const updated = prev.map(t =>
-        t.id === updatedTask.id ? updatedTask : t
-      )
-      console.log('[Structure] Updated tasks in cache, count:', updated.length)
-      return updated
-    })
-    // Also update the selectedTask if it's the one being updated
-    if (selectedTask && selectedTask.id === updatedTask.id) {
-      console.log('[Structure] Updating selectedTask with new data')
-      setSelectedTask(updatedTask)
+
+    // If we're viewing a specific project and the task moved to a different project,
+    // remove it from the current view
+    const effectiveProjectId = projectId || selectedProjectId
+    if (effectiveProjectId && effectiveProjectId !== 'all' && updatedTask.project_id !== effectiveProjectId) {
+      updateTasksAndCache(prev => prev.filter(t => t.id !== updatedTask.id))
+      setSelectedTask(null)
+      // Invalidate both the old project (current view) and new project caches
+      cache.invalidate(CACHE_KEYS.TASKS(effectiveProjectId))
+      cache.invalidate(CACHE_KEYS.TASKS(updatedTask.project_id))
+      cache.invalidate(CACHE_KEYS.TASKS('all'))
+    } else {
+      // Task is still in the current view, update it
+      updateTasksAndCache(prev => {
+        const updated = prev.map(t =>
+          t.id === updatedTask.id ? updatedTask : t
+        )
+        console.log('[Structure] Updated tasks in cache, count:', updated.length)
+        return updated
+      })
+      // Also update the selectedTask if it's the one being updated
+      if (selectedTask && selectedTask.id === updatedTask.id) {
+        console.log('[Structure] Updating selectedTask with new data')
+        setSelectedTask(updatedTask)
+      }
     }
   }
 

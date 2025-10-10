@@ -149,10 +149,22 @@ export function GanttView({ projectId: propProjectId }: GanttViewProps) {
   }
 
   const handleTaskUpdated = (updatedTask: TaskWithDetails) => {
-    setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t))
-    if (updatedTask.project_id) {
+    // If we're viewing a specific project and the task moved to a different project,
+    // remove it from the current view
+    if (selectedProjectId !== 'all' && updatedTask.project_id !== selectedProjectId) {
+      setTasks(prev => prev.filter(t => t.id !== updatedTask.id))
+      setSelectedTask(null)
+      // Invalidate both the old project (current view) and new project caches
+      cache.invalidate(`tasks:data:${selectedProjectId}`)
       cache.invalidate(`tasks:data:${updatedTask.project_id}`)
       cache.invalidate('tasks:data:all')
+    } else {
+      // Task is still in the current view, update it
+      setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t))
+      if (updatedTask.project_id) {
+        cache.invalidate(`tasks:data:${updatedTask.project_id}`)
+        cache.invalidate('tasks:data:all')
+      }
     }
   }
 
