@@ -290,6 +290,7 @@ export function TeamManagement() {
           organizationId={selectedOrgId}
           organizationName={organizations.find(o => o.id === selectedOrgId)?.name || ''}
           onInviteSent={() => {
+            cache.invalidate(CACHE_KEYS.INVITATIONS(selectedOrgId))
             loadInvitations()
             setShowInviteDialog(false)
           }}

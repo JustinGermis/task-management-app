@@ -258,10 +258,7 @@ export function ProjectsList({ organizationId: initialOrgId }: { organizationId?
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href={`/projects/${project.id}`}>View Details</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href={`/projects/${project.id}/edit`}>Edit</Link>
+                    <Link href={`/tasks?project=${project.id}`}>View Tasks</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
