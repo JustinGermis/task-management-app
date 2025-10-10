@@ -326,11 +326,11 @@ export function TaskDetailsEnhanced({
       setIsAssigneePopoverOpen(false)
       setAssigneeSearchQuery('')
 
-      // Send email notification to the newly assigned user
-      const assignedUser = availableUsers.find(u => u.id === userId)
-      if (assignedUser) {
-        await sendTaskAssignmentEmail(assignedUser)
-      }
+      // NOTE: Immediate email notifications disabled - now using daily digest at 9am
+      // const assignedUser = availableUsers.find(u => u.id === userId)
+      // if (assignedUser) {
+      //   await sendTaskAssignmentEmail(assignedUser)
+      // }
     } catch (error) {
       console.error('Failed to add assignee:', error)
     }

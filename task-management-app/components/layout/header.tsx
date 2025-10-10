@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Menu, Bell, Search } from 'lucide-react'
+import { Menu, Bell, Search, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +13,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn, formatRelativeTime } from '@/lib/utils'
-import { getNotifications, getUnreadNotificationCount, markNotificationAsRead } from '@/lib/api/simple-api'
+import { getNotifications, getUnreadNotificationCount, markNotificationAsRead, getCurrentUserProfile } from '@/lib/api/simple-api'
+import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/ui/use-toast'
 
 interface HeaderProps {
   title?: string
@@ -27,14 +29,27 @@ export function Header({ title, onMenuClick, showMenu = true, className }: Heade
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [isSendingDigest, setIsSendingDigest] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   useEffect(() => {
     loadNotifications()
+    checkAdminStatus()
     // Refresh notifications every minute
     const interval = setInterval(loadNotifications, 60000)
     return () => clearInterval(interval)
   }, [])
+
+  const checkAdminStatus = async () => {
+    try {
+      const profile = await getCurrentUserProfile()
+      setIsAdmin(profile?.is_super_admin || false)
+    } catch (error) {
+      console.error('Failed to check admin status:', error)
+    }
+  }
 
   const loadNotifications = async () => {
     try {
@@ -82,6 +97,68 @@ export function Header({ title, onMenuClick, showMenu = true, className }: Heade
     }
   }
 
+  const handleSendDigestNow = async () => {
+    setIsSendingDigest(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        throw new Error('Not authenticated')
+      }
+
+      // Get current user ID
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('User not found')
+      }
+
+      const response = await fetch(
+        'https://aevvuzgavyuqlafflkqz.supabase.co/functions/v1/send-daily-digest',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            testMode: true,
+            testUserId: user.id,
+            time: new Date().toISOString()
+          })
+        }
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send digest')
+      }
+
+      // Show success message based on whether email was sent or not
+      if (result.stats?.emailsSent > 0) {
+        toast({
+          title: "Test digest sent! ✅",
+          description: `Email sent to your inbox immediately. Check for subject starting with [TEST].`,
+        })
+      } else {
+        toast({
+          title: "No digest to send",
+          description: "You have no new tasks or upcoming deadlines in the last 24 hours.",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to send digest:', error)
+      toast({
+        title: "Failed to send digest",
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: "destructive"
+      })
+    } finally {
+      setIsSendingDigest(false)
+    }
+  }
+
   return (
     <header className={cn('flex h-16 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6', className)}>
       <div className="flex items-center space-x-4 flex-1">
@@ -114,6 +191,23 @@ export function Header({ title, onMenuClick, showMenu = true, className }: Heade
             className="w-64 pl-9 bg-muted/30 border-muted focus:bg-background transition-colors"
           />
         </div>
+
+        {/* Admin: Send Daily Digest */}
+        {isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSendDigestNow}
+            disabled={isSendingDigest}
+            className="hidden md:flex items-center space-x-2"
+            title="Send daily digest emails now (for testing)"
+          >
+            <Send className="h-4 w-4" />
+            <span className="text-sm">
+              {isSendingDigest ? 'Sending...' : 'Send Digest'}
+            </span>
+          </Button>
+        )}
 
         {/* Notifications */}
         <DropdownMenu>

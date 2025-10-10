@@ -23,22 +23,28 @@ const projectColors = [
   { name: 'Teal', value: '#14b8a6' },
 ]
 
+const DROPDOWN_KEY = 'global:selectedOrganizationId' // Shared across all pages
+
 export function CreateProjectForm() {
   const cache = useDataCache()
   const [organizations, setOrganizations] = useState<OrganizationWithDetails[]>([])
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    color: projectColors[0].value,
-    start_date: '',
-    end_date: '',
-    organization_id: '',
+  const [formData, setFormData] = useState(() => {
+    // Get globally selected organization from localStorage
+    const globalOrgId = typeof window !== 'undefined' ? localStorage.getItem(DROPDOWN_KEY) : null
+    return {
+      name: '',
+      description: '',
+      color: projectColors[0].value,
+      start_date: '',
+      end_date: '',
+      organization_id: globalOrgId && globalOrgId !== 'all' ? globalOrgId : '',
+    }
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
-  
+
   const preselectedOrgId = searchParams.get('organization')
 
   useEffect(() => {
@@ -116,26 +122,47 @@ export function CreateProjectForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="organization_id">Organization</Label>
-            <Select 
-              value={formData.organization_id} 
-              onValueChange={handleSelectChange('organization_id')}
-              disabled={isLoading || !!preselectedOrgId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select organization" />
-              </SelectTrigger>
-              <SelectContent>
-                {organizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {organizations.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                You need to be a member of an organization to create projects.
-              </p>
+            {formData.organization_id ? (
+              <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
+                <span className="font-medium">
+                  {organizations.find(o => o.id === formData.organization_id)?.name || 'Loading...'}
+                </span>
+                {!preselectedOrgId && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFormData(prev => ({ ...prev, organization_id: '' }))}
+                    disabled={isLoading}
+                  >
+                    Change
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <>
+                <Select
+                  value={formData.organization_id}
+                  onValueChange={handleSelectChange('organization_id')}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select organization" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {organizations.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    You need to be a member of an organization to create projects.
+                  </p>
+                )}
+              </>
             )}
           </div>
 
